@@ -21,8 +21,10 @@ module Canopy
         , parent
         , replace
         , root
+        , rootMap
         , seek
         , siblings
+        , tuple
         )
 
 {-| A representation of a Classification Tree.
@@ -40,7 +42,7 @@ module Canopy
 
 # Manipulating a tree
 
-@docs replace, filter, flatten, map
+@docs replace, filter, flatten, map, tuple, rootMap
 
 
 # Querying a tree
@@ -56,7 +58,7 @@ TODO:
 
   - if we have createNode, we should be able to attach it to the tree
   - separate tree and node in distinct modules?
-  - appendChild should be for appending to a Node and return the created element
+  - appendChild should be for appending to a Node and return the created element, ala DOM api
 
 -}
 
@@ -72,7 +74,8 @@ type Id
 {-| A tree.
 -}
 type Tree a
-    = Tree (Node a)
+    = Empty
+    | Seeded (Node a)
 
 
 {-| A tree node.
@@ -97,7 +100,7 @@ encode datumEncoder tree =
                 , ( "children", children |> List.map encodeNode |> Encode.list )
                 ]
     in
-        tree |> root |> encodeNode
+        tree |> root |> Maybe.map encodeNode |> Maybe.withDefault (Encode.object [])
 
 
 
@@ -134,9 +137,14 @@ idint (Id int) =
 
 {-| Retrieve the root node of a tree.
 -}
-root : Tree a -> Node a
-root (Tree root) =
-    root
+root : Tree a -> Maybe (Node a)
+root tree =
+    case tree of
+        Empty ->
+            Nothing
+
+        Seeded root ->
+            Just root
 
 
 {-| Turn a node into a tuple containing the id, the datum and the children.
@@ -161,7 +169,7 @@ appendChild target datum tree =
             else
                 updateChildren (node |> children |> List.map appendChild_) node
     in
-        tree |> root |> appendChild_ |> Tree
+        tree |> rootMap appendChild_
 
 
 {-| Create a new node to be addable to a given tree.
@@ -174,11 +182,12 @@ createNode value tree =
     Node (nextId tree) value []
 
 
-{-| Create a tree.
+{-| Create a tree, with a root node having the provided datum attached. The
+created root node always has `(Id 0)`.
 -}
 createTree : a -> Tree a
 createTree datum =
-    Tree (Node (Id 0) datum [])
+    Seeded (Node (Id 0) datum [])
 
 
 {-| Deletes a node from a tree, by its id. Will silently refuse to delete a node:
@@ -208,33 +217,29 @@ deleteNode target tree =
 -}
 filter : (a -> Bool) -> Tree a -> Tree a
 filter test tree =
-    let
-        rootId =
-            tree |> root |> id
-    in
-        tree
-            |> seek (not << test)
-            |> List.filter (\id -> id /= rootId)
-            |> List.foldl (\id acc -> acc |> deleteNode id) tree
+    tree
+        |> seek (not << test)
+        |> List.foldl deleteNode tree
+
+
+findNode_ : Id -> Node a -> Maybe (Node a)
+findNode_ target node =
+    if target == id node then
+        Just node
+    else
+        node
+            |> children
+            |> List.map (findNode_ target)
+            |> List.filter ((/=) Nothing)
+            |> List.head
+            |> Maybe.withDefault Nothing
 
 
 {-| Find a node in a tree by its id.
 -}
 findNode : Id -> Tree a -> Maybe (Node a)
 findNode target tree =
-    let
-        findNode_ node =
-            if target == id node then
-                Just node
-            else
-                node
-                    |> children
-                    |> List.map findNode_
-                    |> List.filter ((/=) Nothing)
-                    |> List.head
-                    |> Maybe.withDefault Nothing
-    in
-        tree |> root |> findNode_
+    tree |> root |> Maybe.map (findNode_ target) |> Maybe.withDefault Nothing
 
 
 {-| Find nodes in a tree, by its id.
@@ -263,7 +268,7 @@ flatten_ node =
 -}
 flatten : Tree a -> List ( Id, a )
 flatten tree =
-    tree |> root |> flatten_
+    tree |> root |> Maybe.map flatten_ |> Maybe.withDefault []
 
 
 map_ : (a -> b) -> Node a -> Node b
@@ -275,7 +280,7 @@ map_ mapper (Node id datum children) =
 -}
 map : (a -> b) -> Tree a -> Tree b
 map mapper tree =
-    tree |> root |> map_ mapper |> Tree
+    tree |> rootMap (map_ mapper)
 
 
 {-| Computes the next available unique id for a tree.
@@ -314,7 +319,14 @@ parent_ target candidate =
 -}
 parent : Id -> Tree a -> Maybe (Node a)
 parent target tree =
-    tree |> root |> parent_ target
+    tree |> root |> Maybe.map (parent_ target) |> Maybe.withDefault Nothing
+
+
+{-| Map the tree root node.
+-}
+rootMap : (Node a -> Node b) -> Tree a -> Tree b
+rootMap mapper tree =
+    tree |> root |> Maybe.map (mapper >> Seeded) |> Maybe.withDefault Empty
 
 
 seek_ : (a -> Bool) -> Node a -> List Id
@@ -332,7 +344,7 @@ seek_ test (Node id datum children) =
 -}
 seek : (a -> Bool) -> Tree a -> List Id
 seek test tree =
-    tree |> root |> seek_ test
+    tree |> root |> Maybe.map (seek_ test) |> Maybe.withDefault []
 
 
 {-| Retrieve a node siblings identified by its id in a tree.
@@ -367,7 +379,7 @@ replace_ target node root =
 -}
 replace : Id -> Node a -> Tree a -> Tree a
 replace target node tree =
-    tree |> root |> replace_ target node |> Tree
+    tree |> rootMap (replace_ target node)
 
 
 {-| Update a node's children.

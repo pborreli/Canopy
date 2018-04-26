@@ -13,7 +13,7 @@ asTest label expectation =
 
 testTree : Tree String
 testTree =
-    Tree
+    Seeded
         (Node (Id 0)
             "root"
             [ Node (Id 1) "node 1" []
