@@ -180,6 +180,20 @@ suite =
                 |> Expect.equal Nothing
                 |> asTest "should not find any parent for root"
             ]
+        , describe "path"
+            [ testTree
+                |> path (Id 0)
+                |> Expect.equal [ Id (0) ]
+                |> asTest "should compute the path to root"
+            , testTree
+                |> path (Id 2)
+                |> Expect.equal [ Id (0), Id (2) ]
+                |> asTest "should compute the path to reach a node"
+            , testTree
+                |> path (Id 5)
+                |> Expect.equal [ Id (0), Id (2), Id (5) ]
+                |> asTest "should compute the path to reach a deeply nested node"
+            ]
         , describe "seek"
             [ testTree
                 |> seek (String.contains ".")

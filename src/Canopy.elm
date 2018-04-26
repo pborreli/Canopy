@@ -19,6 +19,7 @@ module Canopy
         , map
         , nextId
         , parent
+        , path
         , replace
         , root
         , rootMap
@@ -47,7 +48,7 @@ module Canopy
 
 # Querying a tree
 
-@docs id, idint, children, datum, findNode, findNodes, nextId, parent, root, seek, siblings
+@docs id, idint, children, datum, findNode, findNodes, nextId, parent, path, root, seek, siblings
 
 
 # Encoding
@@ -320,6 +321,31 @@ parent_ target candidate =
 parent : Id -> Tree a -> Maybe (Node a)
 parent target tree =
     tree |> root |> Maybe.map (parent_ target) |> Maybe.withDefault Nothing
+
+
+path_ : Id -> Node a -> List Id
+path_ target node =
+    let
+        rootNode =
+            node
+
+        path__ target node =
+            case parent_ target node of
+                Just parentNode ->
+                    path__ (id parentNode) rootNode ++ [ id parentNode ]
+
+                Nothing ->
+                    []
+    in
+        path__ target rootNode ++ [ target ]
+
+
+{-| Compute the path to access a node from the root. Returns an empty list when
+the target node doesn't exist in the tree.
+-}
+path : Id -> Tree a -> List Id
+path target tree =
+    tree |> root |> Maybe.map (path_ target) |> Maybe.withDefault []
 
 
 {-| Map the tree root node.
