@@ -26,6 +26,8 @@ module Canopy
         , seek
         , siblings
         , tuple
+        , updateChildren
+        , updateDatum
         )
 
 {-| A representation of a Classification Tree.
@@ -43,7 +45,7 @@ module Canopy
 
 # Manipulating a tree
 
-@docs replace, filter, flatten, map, tuple, rootMap
+@docs replace, filter, flatten, map, tuple, rootMap, updateChildren, updateDatum
 
 
 # Querying a tree
@@ -166,7 +168,7 @@ appendChild target datum tree =
     let
         appendChild_ node =
             if target == id node then
-                node |> updateChildren (createNode datum tree :: (children node))
+                node |> updateChildren (createNode datum tree :: children node)
             else
                 updateChildren (node |> children |> List.map appendChild_) node
     in
