@@ -41,17 +41,17 @@ module Canopy
 @docs Tree, Node, Id
 
 
-# Building and manipulating a tree
+# Building and manipulating a Tree
 
 @docs createTree, createNode, appendChild, deleteNode
 
 
-# Manipulating a tree
+# Manipulating a Tree
 
 @docs replace, filter, flatMap, flatten, map, triplet, tuple, rootMap, updateChildren, updateDatum
 
 
-# Querying a tree
+# Querying a Tree
 
 @docs id, idint, children, datum, findNode, findNodes, nextId, parent, path, root, seek, siblings
 
@@ -74,22 +74,25 @@ import Json.Encode as Encode
 
 {-| A node unique id.
 
-**Note:** You should never rely on Id as a business identifier of attached
-generics. Rather store your business ids within each datum.
+Internally it's basicallky just an auto-incremented `Int`,
+though you should never rely on it as a business identifier for attached
+data. Rather store your business identifiers within each datum.
 
 -}
 type Id
     = Id Int
 
 
-{-| A tree.
+{-| A generic tree, that can either be `Empty` or `Seeded` with a root Node.
 -}
 type Tree a
     = Empty
     | Seeded (Node a)
 
 
-{-| A tree node.
+{-| A tree node. Basically a [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree)
+though with the notion of unique identifier for a Node added; this allows easy
+querying and ensures duplicate data are allowed to live within the tree.
 -}
 type Node a
     = Node Id a (List (Node a))
@@ -99,7 +102,14 @@ type Node a
 -- Decode
 
 
-{-| Decode a tree. You must specify a datum decoder.
+{-| Decode a Tree. You must specify a datum decoder.
+
+    case Decode.decodeString (decode Decode.string) tree of
+        Ok decoded ->
+            ...
+        Err _ ->
+            ...
+
 -}
 decode : Decoder a -> Decoder (Tree a)
 decode decodeDatum =
@@ -121,7 +131,16 @@ decodeNode decodeDatum =
 -- Encode
 
 
-{-| A tree JSON encoder. You must provide an encoder for the datum type.
+{-| Encode a Tree. You must provide an encoder for the datum type.
+
+    import Json.Encode as Encode
+
+    encodeTree : Tree String -> String
+    encodeTree tree =
+        tree
+            |> encode Encode.string
+            |> Encode.encode 2
+
 -}
 encode : (a -> Encode.Value) -> Tree a -> Encode.Value
 encode datumEncoder tree =
@@ -140,21 +159,21 @@ encode datumEncoder tree =
 -- Getters
 
 
-{-| Extracts children from a node.
+{-| Extracts children from a Node.
 -}
 children : Node a -> List (Node a)
 children (Node _ _ children) =
     children
 
 
-{-| Extracts a datum from a node.
+{-| Extracts a datum from a Node.
 -}
 datum : Node a -> a
 datum (Node _ datum _) =
     datum
 
 
-{-| Extract a node's id.
+{-| Extract a Node's Id.
 -}
 id : Node a -> Id
 id (Node id _ _) =
@@ -162,13 +181,17 @@ id (Node id _ _) =
 
 
 {-| Extract the integer value of an Id.
+
+You should never rely on this identifier for business-related data; rather store
+unique business identifiers in a Node's datum.
+
 -}
 idint : Id -> Int
 idint (Id int) =
     int
 
 
-{-| Retrieve the root node of a tree.
+{-| Retrieve the root Node of a Tree, if it's not empty.
 -}
 root : Tree a -> Maybe (Node a)
 root tree =
@@ -180,14 +203,14 @@ root tree =
             Just root
 
 
-{-| Turn a node into a triplet containing the Id, the datum and the parent Id (if any).
+{-| Turn a Node into a triplet containing the Id, the datum and the parent Id (if any).
 -}
 triplet : Tree a -> Node a -> ( Id, a, Maybe Id )
 triplet tree node =
     ( id node, datum node, tree |> parent (id node) |> Maybe.map id )
 
 
-{-| Turn a node into a tuple containing the Id and the datum.
+{-| Turn a Node into a tuple containing the Id and the datum.
 -}
 tuple : Node a -> ( Id, a )
 tuple node =
@@ -198,7 +221,7 @@ tuple node =
 -- Manipulation
 
 
-{-| Append a new child holding a datum to a node identified by its id in a tree.
+{-| Append a new child holding a datum to a Node identified by its Id in a Tree.
 -}
 appendChild : Id -> a -> Tree a -> Tree a
 appendChild target datum tree =
@@ -212,7 +235,7 @@ appendChild target datum tree =
         tree |> rootMap appendChild_
 
 
-{-| Create a new node to be addable to a given tree.
+{-| Create a new Node to be addable to a given Tree.
 
 A new unique identifier is generated for this node, computed against the tree.
 
@@ -222,7 +245,7 @@ createNode value tree =
     Node (nextId tree) value []
 
 
-{-| Create a tree, with a root node having the provided datum attached. The
+{-| Create a Tree, with a root node having the provided datum attached. The
 created root node always has `(Id 0)`.
 -}
 createTree : a -> Tree a
@@ -230,7 +253,7 @@ createTree datum =
     Seeded (Node (Id 0) datum [])
 
 
-{-| Deletes a node from a tree, by its id. Will silently refuse to delete a node:
+{-| Deletes a Node from a Tree, by its Id. Will silently refuse to delete a Node:
 
   - if it's the tree root node
   - if the target node doesn't exist
@@ -253,7 +276,7 @@ deleteNode target tree =
             tree
 
 
-{-| Filter a tree.
+{-| Filter a Tree.
 -}
 filter : (a -> Bool) -> Tree a -> Tree a
 filter test tree =
@@ -282,14 +305,14 @@ findNode_ target node =
             |> Maybe.withDefault Nothing
 
 
-{-| Find a node in a tree by its id.
+{-| Find a Node in a Tree by its Id.
 -}
 findNode : Id -> Tree a -> Maybe (Node a)
 findNode target tree =
     tree |> root |> Maybe.map (findNode_ target) |> Maybe.withDefault Nothing
 
 
-{-| Find nodes in a tree, by its id.
+{-| Find nodes in a Tree, by its Id.
 -}
 findNodes : List Id -> Tree a -> List (Maybe (Node a))
 findNodes ids tree =
@@ -312,7 +335,7 @@ flatMap mapper tree =
     tree |> root |> Maybe.map (flatMap_ mapper) |> Maybe.withDefault []
 
 
-{-| Flatten a tree.
+{-| Flatten a Tree.
 -}
 flatten : Tree a -> List (Node a)
 flatten tree =
@@ -324,7 +347,7 @@ map_ mapper (Node id datum children) =
     Node id (mapper datum) (children |> List.map (map_ mapper))
 
 
-{-| Map all nodes data in a tree.
+{-| Map all nodes data in a Tree.
 -}
 map : (a -> b) -> Tree a -> Tree b
 map mapper tree =
@@ -363,7 +386,7 @@ parent_ target candidate =
             Nothing
 
 
-{-| Retrieve the parent of a given node in a tree, by its id.
+{-| Retrieve the parent of a given node in a Tree, by its Id.
 -}
 parent : Id -> Tree a -> Maybe (Node a)
 parent target tree =
@@ -387,8 +410,8 @@ path_ target node =
         path__ target rootNode ++ [ target ]
 
 
-{-| Compute the path to access a node from the root. Returns an empty list when
-the target node doesn't exist in the tree.
+{-| Compute the path to access a Node from the root. Returns an empty list when
+the target Node doesn't exist in the tree.
 -}
 path : Id -> Tree a -> List Id
 path target tree =
@@ -410,14 +433,14 @@ seek_ test node =
         |> List.map id
 
 
-{-| Retrieve all ids from nodes containing a datum satisfying a provided condition.
+{-| Retrieve all Ids from nodes containing a datum satisfying a provided condition.
 -}
 seek : (a -> Bool) -> Tree a -> List Id
 seek test tree =
     tree |> root |> Maybe.map (seek_ test) |> Maybe.withDefault []
 
 
-{-| Retrieve a node siblings identified by its id in a tree.
+{-| Retrieve a Node siblings identified by its Id in a Tree.
 -}
 siblings : Id -> Tree a -> List (Node a)
 siblings target tree =
@@ -445,21 +468,21 @@ replace_ target node root =
             root |> updateChildren newChildren
 
 
-{-| Replace a node in a tree.
+{-| Replace a Node in a Tree.
 -}
 replace : Id -> Node a -> Tree a -> Tree a
 replace target node tree =
     tree |> rootMap (replace_ target node)
 
 
-{-| Update a node's children.
+{-| Update a Node's children.
 -}
 updateChildren : List (Node a) -> Node a -> Node a
 updateChildren children (Node id datum _) =
     Node id datum children
 
 
-{-| Update a node's datum.
+{-| Update a Node's datum.
 -}
 updateDatum : a -> Node a -> Node a
 updateDatum datum (Node id _ children) =
