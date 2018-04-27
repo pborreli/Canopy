@@ -4,6 +4,7 @@ module Canopy
         , Node(..)
         , Tree(..)
         , appendChild
+        , attachTo
         , createNode
         , createTree
         , children
@@ -33,7 +34,7 @@ module Canopy
         , updateDatum
         )
 
-{-| A representation of a Classification Tree.
+{-| A generic Tree.
 
 
 # Basics
@@ -43,7 +44,7 @@ module Canopy
 
 # Building and manipulating a Tree
 
-@docs createTree, createNode, appendChild, deleteNode
+@docs createTree, createNode, appendChild, attachTo, deleteNode
 
 
 # Manipulating a Tree
@@ -62,9 +63,7 @@ module Canopy
 
 TODO:
 
-  - if we have createNode, we should be able to attach it to the tree
   - separate tree and node in distinct modules?
-  - appendChild should be for appending to a Node and return the created element, ala DOM api
 
 -}
 
@@ -74,7 +73,7 @@ import Json.Encode as Encode
 
 {-| A node unique id.
 
-Internally it's basicallky just an auto-incremented `Int`,
+Internally it's basically just an auto-incremented `Int`,
 though you should never rely on it as a business identifier for attached
 data. Rather store your business identifiers within each datum.
 
@@ -235,6 +234,22 @@ appendChild target datum tree =
         tree |> rootMap appendChild_
 
 
+{-| Attach a Node to a Tree. Wont't touch the Tree if the target Id doesn't exist.
+-}
+attachTo : Id -> Tree a -> Node a -> Tree a
+attachTo target tree node =
+    case findNode target tree of
+        Just found ->
+            let
+                updated =
+                    found |> updateChildren (node :: children found)
+            in
+                tree |> replace (id found) updated
+
+        Nothing ->
+            tree
+
+
 {-| Create a new Node to be addable to a given Tree.
 
 A new unique identifier is generated for this node, computed against the tree.
@@ -247,6 +262,9 @@ createNode value tree =
 
 {-| Create a Tree, with a root node having the provided datum attached. The
 created root node always has `(Id 0)`.
+
+    createTree "root" == Seeded (Node (Id 0) "root" [])
+
 -}
 createTree : a -> Tree a
 createTree datum =

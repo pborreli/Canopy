@@ -81,6 +81,15 @@ suite =
                 |> Expect.equal (Just [ 7, 4, 5, 6 ])
                 |> asTest "should append a child to a node"
             ]
+        , describe "attachTo"
+            [ testTree
+                |> createNode "leaf"
+                |> attachTo (Id 6) testTree
+                |> findNode (Id 6)
+                |> Maybe.map (children >> List.head >> Maybe.map datum >> Maybe.withDefault "")
+                |> Expect.equal (Just "leaf")
+                |> asTest "should deeply attach a node to another one in a tree"
+            ]
         , describe "decode"
             [ "null"
                 |> Decode.decodeString (decode Decode.string)
