@@ -294,7 +294,8 @@ deleteNode target tree =
             tree
 
 
-{-| Filter a Tree.
+{-| Filter a Tree, keeping only nodes which attached datum satisfies the
+provided test, and their ancestors up to the tree root.
 -}
 filter : (a -> Bool) -> Tree a -> Tree a
 filter test tree =
@@ -323,14 +324,14 @@ findNode_ target node =
             |> Maybe.withDefault Nothing
 
 
-{-| Find a Node in a Tree by its Id.
+{-| Find a Node in a Tree, identified by its Id.
 -}
 findNode : Id -> Tree a -> Maybe (Node a)
 findNode target tree =
     tree |> root |> Maybe.map (findNode_ target) |> Maybe.withDefault Nothing
 
 
-{-| Find nodes in a Tree, by its Id.
+{-| Find nodes in a Tree, identified by their Ids.
 -}
 findNodes : List Id -> Tree a -> List (Maybe (Node a))
 findNodes ids tree =
