@@ -1,6 +1,7 @@
 module CanopyTest exposing (suite)
 
 import Canopy exposing (..)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Expect exposing (Expectation)
 import Test exposing (..)
@@ -79,6 +80,16 @@ suite =
                 |> Maybe.map (\node -> node |> children |> List.map (id >> idint))
                 |> Expect.equal (Just [ 7, 4, 5, 6 ])
                 |> asTest "should append a child to a node"
+            ]
+        , describe "decode"
+            [ "null"
+                |> Decode.decodeString (decode Decode.string)
+                |> Expect.equal (Ok Empty)
+                |> asTest "should decode an empty tree"
+            , json
+                |> Decode.decodeString (decode Decode.string)
+                |> Expect.equal (Ok testTree)
+                |> asTest "should decode an seeded tree"
             ]
         , describe "deleteNode"
             [ testTree

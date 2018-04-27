@@ -8,6 +8,7 @@ module Canopy
         , createTree
         , children
         , datum
+        , decode
         , deleteNode
         , encode
         , filter
@@ -53,9 +54,9 @@ module Canopy
 @docs id, idint, children, datum, findNode, findNodes, nextId, parent, path, root, seek, siblings
 
 
-# Encoding
+# Importing and exporting
 
-@docs encode
+@docs decode, encode
 
 TODO:
 
@@ -65,6 +66,7 @@ TODO:
 
 -}
 
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
@@ -92,7 +94,29 @@ type Node a
 
 
 
--- Encoders
+-- Decode
+
+
+{-| Decode a tree. You must specify a datum decoder.
+-}
+decode : Decoder a -> Decoder (Tree a)
+decode decodeDatum =
+    Decode.oneOf
+        [ Decode.null Empty
+        , Decode.map Seeded (decodeNode decodeDatum)
+        ]
+
+
+decodeNode : Decoder a -> Decoder (Node a)
+decodeNode decodeDatum =
+    Decode.map3 Node
+        (Decode.field "id" (Decode.map Id Decode.int))
+        (Decode.field "value" decodeDatum)
+        (Decode.field "children" (Decode.list (Decode.lazy (\_ -> decodeNode decodeDatum))))
+
+
+
+-- Encode
 
 
 {-| A tree JSON encoder. You must provide an encoder for the datum type.
@@ -102,7 +126,8 @@ encode datumEncoder tree =
     let
         encodeNode (Node (Id id) datum children) =
             Encode.object
-                [ ( "value", datumEncoder datum )
+                [ ( "id", Encode.int id )
+                , ( "value", datumEncoder datum )
                 , ( "children", children |> List.map encodeNode |> Encode.list )
                 ]
     in
