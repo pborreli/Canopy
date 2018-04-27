@@ -69,6 +69,10 @@ import Json.Encode as Encode
 
 
 {-| A node id.
+
+**Note:** You should never rely on Id as a business identifier of attached
+generics. Rather store your business ids within each datum.
+
 -}
 type Id
     = Id Int
@@ -98,8 +102,7 @@ encode datumEncoder tree =
     let
         encodeNode (Node (Id id) datum children) =
             Encode.object
-                [ ( "id", Encode.int id )
-                , ( "value", datumEncoder datum )
+                [ ( "value", datumEncoder datum )
                 , ( "children", children |> List.map encodeNode |> Encode.list )
                 ]
     in
