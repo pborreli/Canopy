@@ -14,6 +14,7 @@ module Canopy
         , filter
         , findNode
         , findNodes
+        , flatMap
         , flatten
         , id
         , idint
@@ -26,6 +27,7 @@ module Canopy
         , rootMap
         , seek
         , siblings
+        , triplet
         , tuple
         , updateChildren
         , updateDatum
@@ -46,7 +48,7 @@ module Canopy
 
 # Manipulating a tree
 
-@docs replace, filter, flatten, map, tuple, rootMap, updateChildren, updateDatum
+@docs replace, filter, flatMap, flatten, map, triplet, tuple, rootMap, updateChildren, updateDatum
 
 
 # Querying a tree
@@ -70,7 +72,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
-{-| A node id.
+{-| A node unique id.
 
 **Note:** You should never rely on Id as a business identifier of attached
 generics. Rather store your business ids within each datum.
@@ -178,7 +180,14 @@ root tree =
             Just root
 
 
-{-| Turn a node into a tuple containing the id, the datum and the children.
+{-| Turn a node into a triplet containing the Id, the datum and the parent Id (if any).
+-}
+triplet : Tree a -> Node a -> ( Id, a, Maybe Id )
+triplet tree node =
+    ( id node, datum node, tree |> parent (id node) |> Maybe.map id )
+
+
+{-| Turn a node into a tuple containing the Id and the datum.
 -}
 tuple : Node a -> ( Id, a )
 tuple node =
@@ -248,9 +257,16 @@ deleteNode target tree =
 -}
 filter : (a -> Bool) -> Tree a -> Tree a
 filter test tree =
-    tree
-        |> seek (not << test)
-        |> List.foldl deleteNode tree
+    let
+        toDelete =
+            tree |> seek (not << test)
+
+        toPreserve =
+            tree |> seek test |> List.map (\id -> path id tree) |> List.concat
+    in
+        toDelete
+            |> List.filter (\id -> List.member id toPreserve |> not)
+            |> List.foldl deleteNode tree
 
 
 findNode_ : Id -> Node a -> Maybe (Node a)
@@ -280,26 +296,27 @@ findNodes ids tree =
     ids |> List.map (\id -> findNode id tree)
 
 
-flatten_ : Node a -> List ( Id, a )
-flatten_ node =
+flatMap_ : (Node a -> b) -> Node a -> List b
+flatMap_ mapper node =
     node
         |> children
         |> List.foldl
-            (\node acc ->
-                List.concat
-                    [ acc
-                    , [ tuple node ]
-                    , node |> children |> List.map tuple
-                    ]
-            )
-            [ tuple node ]
+            (\node acc -> List.concat [ acc, [ mapper node ], node |> children |> List.map mapper ])
+            [ mapper node ]
+
+
+{-| Map each node using a mapping function then flatten the result into a new list.
+-}
+flatMap : (Node a -> b) -> Tree a -> List b
+flatMap mapper tree =
+    tree |> root |> Maybe.map (flatMap_ mapper) |> Maybe.withDefault []
 
 
 {-| Flatten a tree.
 -}
-flatten : Tree a -> List ( Id, a )
+flatten : Tree a -> List (Node a)
 flatten tree =
-    tree |> root |> Maybe.map flatten_ |> Maybe.withDefault []
+    tree |> flatMap identity
 
 
 map_ : (a -> b) -> Node a -> Node b
@@ -314,13 +331,13 @@ map mapper tree =
     tree |> rootMap (map_ mapper)
 
 
-{-| Computes the next available unique id for a tree.
+{-| Computes the next available unique id for a given tree.
 -}
 nextId : Tree a -> Id
 nextId tree =
     tree
         |> flatten
-        |> List.map (Tuple.first >> idint)
+        |> List.map (id >> idint)
         |> List.maximum
         |> Maybe.withDefault 0
         |> (+) 1
@@ -386,14 +403,11 @@ rootMap mapper tree =
 
 
 seek_ : (a -> Bool) -> Node a -> List Id
-seek_ test (Node id datum children) =
-    List.concat
-        [ if test datum then
-            [ id ]
-          else
-            []
-        , children |> List.map (seek_ test) |> List.concat
-        ]
+seek_ test node =
+    node
+        |> flatMap_ identity
+        |> List.filter (datum >> test)
+        |> List.map id
 
 
 {-| Retrieve all ids from nodes containing a datum satisfying a provided condition.

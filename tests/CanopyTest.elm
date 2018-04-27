@@ -94,14 +94,12 @@ suite =
         , describe "deleteNode"
             [ testTree
                 |> deleteNode (Id 4)
-                |> flatten
-                |> List.map (Tuple.first >> idint)
+                |> flatMap (id >> idint)
                 |> Expect.equal [ 0, 1, 2, 5, 6, 3 ]
                 |> asTest "should delete a deeply nested node from a tree"
             , testTree
                 |> deleteNode (Id 2)
-                |> flatten
-                |> List.map (Tuple.first >> idint)
+                |> flatMap (id >> idint)
                 |> Expect.equal [ 0, 1, 3 ]
                 |> asTest "should delete a node from a tree"
             , testTree
@@ -127,7 +125,7 @@ suite =
                 |> asTest "should never filter out tree root"
             , testTree
                 |> filter (String.contains "2")
-                |> flatten
+                |> flatMap tuple
                 |> Expect.equal
                     [ ( Id 0, "root" )
                     , ( Id 2, "node 2" )
@@ -136,19 +134,35 @@ suite =
                     , ( Id 6, "node 2.3" )
                     ]
                 |> asTest "should selectively filter tree nodes"
+            , testTree
+                |> filter ((==) "node 2.2")
+                |> flatMap tuple
+                |> Expect.equal
+                    [ ( Id 0, "root" )
+                    , ( Id 2, "node 2" )
+                    , ( Id 5, "node 2.2" )
+                    ]
+                |> asTest "should preserve parents"
+            ]
+        , describe "flatMap"
+            [ testTree
+                |> flatMap (datum >> String.toUpper)
+                |> Expect.equal
+                    [ "ROOT"
+                    , "NODE 1"
+                    , "NODE 2"
+                    , "NODE 2.1"
+                    , "NODE 2.2"
+                    , "NODE 2.3"
+                    , "NODE 3"
+                    ]
+                |> asTest "should flatMap a tree"
             ]
         , describe "flatten"
             [ testTree
                 |> flatten
-                |> Expect.equal
-                    [ ( Id 0, "root" )
-                    , ( Id 1, "node 1" )
-                    , ( Id 2, "node 2" )
-                    , ( Id 4, "node 2.1" )
-                    , ( Id 5, "node 2.2" )
-                    , ( Id 6, "node 2.3" )
-                    , ( Id 3, "node 3" )
-                    ]
+                |> List.map (id >> idint)
+                |> Expect.equal [ 0, 1, 2, 4, 5, 6, 3 ]
                 |> asTest "should flatten a tree"
             ]
         , describe "findNode"
@@ -205,6 +219,19 @@ suite =
                 |> Expect.equal [ Id (0), Id (2), Id (5) ]
                 |> asTest "should compute the path to reach a deeply nested node"
             ]
+        , describe "replace"
+            [ testTree
+                |> replace (Id 4) (Node (Id 4) "blah" [])
+                |> findNode (Id 4)
+                |> Maybe.map datum
+                |> Expect.equal (Just "blah")
+                |> asTest "should update a node in the tree"
+            , testTree
+                |> replace (Id 2) (Node (Id 2) "2" [ (Node (Id 4) "blah" []) ])
+                |> findNode (Id 2)
+                |> Expect.equal (Just (Node (Id 2) "2" [ (Node (Id 4) "blah" []) ]))
+                |> asTest "should update a node in the tree 2"
+            ]
         , describe "seek"
             [ testTree
                 |> seek (String.contains ".")
@@ -224,17 +251,18 @@ suite =
                 |> Expect.equal [ 5, 6 ]
                 |> asTest "should retrieve node siblings across the tree"
             ]
-        , describe "replace"
+        , describe "triplet"
             [ testTree
-                |> replace (Id 4) (Node (Id 4) "blah" [])
-                |> findNode (Id 4)
-                |> Maybe.map datum
-                |> Expect.equal (Just "blah")
-                |> asTest "should update a node in the tree"
-            , testTree
-                |> replace (Id 2) (Node (Id 2) "2" [ (Node (Id 4) "blah" []) ])
-                |> findNode (Id 2)
-                |> Expect.equal (Just (Node (Id 2) "2" [ (Node (Id 4) "blah" []) ]))
-                |> asTest "should update a node in the tree 2"
+                |> flatMap (triplet testTree)
+                |> Expect.equal
+                    [ ( Id 0, "root", Nothing )
+                    , ( Id 1, "node 1", Just (Id 0) )
+                    , ( Id 2, "node 2", Just (Id 0) )
+                    , ( Id 4, "node 2.1", (Just (Id 2)) )
+                    , ( Id 5, "node 2.2", Just (Id 2) )
+                    , ( Id 6, "node 2.3", Just (Id 2) )
+                    , ( Id 3, "node 3", Just (Id 0) )
+                    ]
+                |> asTest "should turn a node into a triplet"
             ]
         ]
