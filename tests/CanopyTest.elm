@@ -1,6 +1,7 @@
 module CanopyTest exposing (..)
 
 import Canopy exposing (..)
+import Canopy.Node exposing (Node(..), node, datum)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Expect exposing (Expectation)
