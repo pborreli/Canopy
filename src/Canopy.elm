@@ -375,7 +375,7 @@ path_ target rootNode =
                 path__ target rootNode ++ [ target ]
 
 
-{-| Compute the path to access a Node from the root. Returns an empty list when
+{-| Compute the path to a Node from the root. Returns an empty list when
 the target Node doesn't exist in the tree.
 -}
 path : a -> Tree a -> List a
