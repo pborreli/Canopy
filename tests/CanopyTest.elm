@@ -69,6 +69,14 @@ testAppendChild =
             |> appendChild "foo" "baz"
             |> Expect.equal (tree "foo" [ leaf "bar", leaf "baz" ])
             |> asTest "should append a child to a node"
+        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+            |> appendChild "qux" "boo"
+            |> Expect.equal (tree "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
+            |> asTest "should deeply append a child to a node"
+        , tree "foo" [ leaf "bar" ]
+            |> appendChild "non-existent" "baz"
+            |> Expect.equal (tree "foo" [ leaf "bar" ])
+            |> asTest "should not append a node to a non-existent parent"
         ]
 
 
@@ -297,6 +305,14 @@ testPrependChild =
             |> prependChild "foo" "baz"
             |> Expect.equal (tree "foo" [ leaf "baz", leaf "bar" ])
             |> asTest "should prepend a child to a node"
+        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+            |> prependChild "qux" "boo"
+            |> Expect.equal (tree "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
+            |> asTest "should deeply prepend a child to a node"
+        , tree "foo" [ leaf "bar" ]
+            |> prependChild "non-existent" "baz"
+            |> Expect.equal (tree "foo" [ leaf "bar" ])
+            |> asTest "should not prepend a node to a non-existent parent"
         ]
 
 

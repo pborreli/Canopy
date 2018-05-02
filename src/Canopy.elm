@@ -25,7 +25,7 @@ module Canopy
         , tuple
         )
 
-{-| A generic Tree.
+{-| A generic Tree, which nodes are designed to hold a value unique to the whole tree.
 
 TODO:
 
@@ -36,6 +36,14 @@ TODO:
   - we could also add checks to ensure any added datum is unique to the tree (using a Set for instance)
       - though would end in using Result much everywhere
   - reorg docs, code and tests using the same segmentation
+  - do we actually need Tree? I think not
+  - deal with non-unique nodes resiliently:
+      - delete all nodes matching the provided datum
+      - append/prepend a value to each nodes matching the provided datum
+      - replace all nodes matching the provided datum
+      - get -> first match from left
+      - parent -> first match from left
+      - siblings -> first match from left
 
 
 # Basics
@@ -158,15 +166,10 @@ appendChild : a -> a -> Tree a -> Tree a
 appendChild target child tree =
     let
         appendChild_ node =
-            case node |> Node.get target of
-                Just node ->
-                    if target == Node.datum node then
-                        node |> Node.updateChildren (Node.children node ++ [ leaf child ])
-                    else
-                        Node.updateChildren (node |> Node.children |> List.map appendChild_) node
-
-                Nothing ->
-                    node
+            if target == Node.datum node then
+                node |> Node.updateChildren (Node.children node ++ [ leaf child ])
+            else
+                Node.updateChildren (node |> Node.children |> List.map appendChild_) node
     in
         tree |> rootMap appendChild_
 
@@ -279,15 +282,10 @@ prependChild : a -> a -> Tree a -> Tree a
 prependChild target child tree =
     let
         prependChild_ node =
-            case node |> Node.get target of
-                Just node ->
-                    if target == Node.datum node then
-                        node |> Node.updateChildren (leaf child :: Node.children node)
-                    else
-                        Node.updateChildren (node |> Node.children |> List.map prependChild_) node
-
-                Nothing ->
-                    node
+            if target == Node.datum node then
+                node |> Node.updateChildren (leaf child :: Node.children node)
+            else
+                Node.updateChildren (node |> Node.children |> List.map prependChild_) node
     in
         tree |> rootMap prependChild_
 
