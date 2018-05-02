@@ -1,7 +1,6 @@
 module CanopyTest exposing (..)
 
 import Canopy exposing (..)
-import Canopy.Node exposing (Node(..), node, datum)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Expect exposing (Expectation)
@@ -13,9 +12,9 @@ asTest label expectation =
     expectation |> always |> test label
 
 
-testTree : Tree String
+testTree : Node String
 testTree =
-    tree
+    node
         "root"
         [ leaf "node 1"
         , node
@@ -65,17 +64,17 @@ json =
 testAppendChild : Test
 testAppendChild =
     describe "appendChild"
-        [ tree "foo" [ leaf "bar" ]
+        [ node "foo" [ leaf "bar" ]
             |> appendChild "foo" "baz"
-            |> Expect.equal (tree "foo" [ leaf "bar", leaf "baz" ])
+            |> Expect.equal (node "foo" [ leaf "bar", leaf "baz" ])
             |> asTest "should append a child to a node"
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> appendChild "qux" "boo"
-            |> Expect.equal (tree "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
+            |> Expect.equal (node "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
             |> asTest "should deeply append a child to a node"
-        , tree "foo" [ leaf "bar" ]
+        , node "foo" [ leaf "bar" ]
             |> appendChild "non-existent" "baz"
-            |> Expect.equal (tree "foo" [ leaf "bar" ])
+            |> Expect.equal (node "foo" [ leaf "bar" ])
             |> asTest "should not append a node to a non-existent parent"
         ]
 
@@ -83,34 +82,10 @@ testAppendChild =
 testDecode : Test
 testDecode =
     describe "decode"
-        [ "null"
-            |> Decode.decodeString (decode Decode.string)
-            |> Expect.equal (Ok Empty)
-            |> asTest "should decode an empty tree"
-        , json
+        [ json
             |> Decode.decodeString (decode Decode.string)
             |> Expect.equal (Ok testTree)
-            |> asTest "should decode an seeded tree"
-        ]
-
-
-testDeleteNode : Test
-testDeleteNode =
-    describe "deleteNode"
-        [ testTree
-            |> deleteNode "node 2.1"
-            |> flatMap datum
-            |> Expect.equal [ "root", "node 1", "node 2", "node 2.2", "node 2.3", "node 3" ]
-            |> asTest "should delete a deeply nested node from a tree"
-        , testTree
-            |> deleteNode "node 2"
-            |> flatMap datum
-            |> Expect.equal [ "root", "node 1", "node 3" ]
-            |> asTest "should delete a node from a tree"
-        , testTree
-            |> deleteNode "root"
-            |> Expect.equal Empty
-            |> asTest "should delete a tree root node"
+            |> asTest "should decode a tree"
         ]
 
 
@@ -190,7 +165,7 @@ testGet =
     describe "get"
         [ testTree
             |> get "root"
-            |> Expect.equal (root testTree)
+            |> Expect.equal (Just testTree)
             |> asTest "should find root node"
         , testTree
             |> get "node 2.3"
@@ -200,23 +175,14 @@ testGet =
             |> get "non-existent"
             |> Expect.equal Nothing
             |> asTest "should not find a non-existent node"
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> get "baz"
             |> Expect.equal (Just (node "baz" [ leaf "qux" ]))
             |> asTest "hello"
-        , Seeded (Node "foo" ([ Node "bar" [], Node "baz" ([ Node "qux" [] ]) ]))
+        , Node "foo" ([ Node "bar" [], Node "baz" ([ Node "qux" [] ]) ])
             |> get "bar"
             |> Expect.equal (Just (leaf "bar"))
             |> asTest "hello 2"
-        ]
-
-
-testTree_ : Test
-testTree_ =
-    describe "tree"
-        [ tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
-            |> Expect.equal (Seeded (Node "foo" ([ Node "bar" [], Node "baz" ([ Node "qux" [] ]) ])))
-            |> asTest "hello"
         ]
 
 
@@ -226,7 +192,7 @@ testMap =
         [ testTree
             |> map String.toUpper
             |> Expect.equal
-                (tree
+                (node
                     "ROOT"
                     [ leaf "NODE 1"
                     , node
@@ -239,6 +205,15 @@ testMap =
                     ]
                 )
             |> asTest "should map a tree"
+        ]
+
+
+testNode : Test
+testNode =
+    describe "node"
+        [ node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+            |> Expect.equal (Node "foo" ([ Node "bar" [], Node "baz" ([ Node "qux" [] ]) ]))
+            |> asTest "hello"
         ]
 
 
@@ -283,15 +258,15 @@ testPath =
             |> asTest "should compute the path to reach a deeply nested node"
 
         -- handcrafted tree
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> path "bar"
             |> Expect.equal [ "foo", "bar" ]
             |> asTest "should find the path to a leaf at the first level"
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> path "baz"
             |> Expect.equal [ "foo", "baz" ]
             |> asTest "should find the path to a node at the first level"
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> path "qux"
             |> Expect.equal [ "foo", "baz", "qux" ]
             |> asTest "should find the path to a leaf at the second level"
@@ -301,18 +276,38 @@ testPath =
 testPrependChild : Test
 testPrependChild =
     describe "prependChild"
-        [ tree "foo" [ leaf "bar" ]
+        [ node "foo" [ leaf "bar" ]
             |> prependChild "foo" "baz"
-            |> Expect.equal (tree "foo" [ leaf "baz", leaf "bar" ])
+            |> Expect.equal (node "foo" [ leaf "baz", leaf "bar" ])
             |> asTest "should prepend a child to a node"
-        , tree "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
+        , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> prependChild "qux" "boo"
-            |> Expect.equal (tree "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
+            |> Expect.equal (node "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
             |> asTest "should deeply prepend a child to a node"
-        , tree "foo" [ leaf "bar" ]
+        , node "foo" [ leaf "bar" ]
             |> prependChild "non-existent" "baz"
-            |> Expect.equal (tree "foo" [ leaf "bar" ])
+            |> Expect.equal (node "foo" [ leaf "bar" ])
             |> asTest "should not prepend a node to a non-existent parent"
+        ]
+
+
+testRemove : Test
+testRemove =
+    describe "remove"
+        [ testTree
+            |> remove "node 2.1"
+            |> flatMap datum
+            |> Expect.equal [ "root", "node 1", "node 2", "node 2.2", "node 2.3", "node 3" ]
+            |> asTest "should delete a deeply nested node from a tree"
+        , testTree
+            |> remove "node 2"
+            |> flatMap datum
+            |> Expect.equal [ "root", "node 1", "node 3" ]
+            |> asTest "should delete a node from a tree"
+        , testTree
+            |> remove "root"
+            |> Expect.equal testTree
+            |> asTest "should not delete tree root"
         ]
 
 
@@ -353,4 +348,37 @@ testSiblings =
             |> siblings "node 2.2"
             |> Expect.equal [ "node 2.1", "node 2.3" ]
             |> asTest "should retrieve node siblings across the tree"
+        ]
+
+
+testToList : Test
+testToList =
+    describe "toList"
+        [ testTree
+            |> toList
+            |> Expect.equal
+                [ ( "root", Nothing )
+                , ( "node 1", Just "root" )
+                , ( "node 2", Just "root" )
+                , ( "node 2.1", Just "node 2" )
+                , ( "node 2.2", Just "node 2" )
+                , ( "node 2.3", Just "node 2" )
+                , ( "node 3", Just "root" )
+                ]
+            |> asTest "should turn a node into a list of tuples"
+        ]
+
+
+testTuple : Test
+testTuple =
+    describe "tuple"
+        [ testTree
+            |> tuple testTree
+            |> Expect.equal ( "root", Nothing )
+            |> asTest "should map a root node to a tuple"
+        , testTree
+            |> get "node 2.2"
+            |> Maybe.map (tuple testTree)
+            |> Expect.equal (Just ( "node 2.2", Just "node 2" ))
+            |> asTest "should map a nested node to a tuple"
         ]

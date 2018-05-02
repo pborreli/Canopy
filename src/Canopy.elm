@@ -1,10 +1,9 @@
 module Canopy
     exposing
-        ( Tree(..)
+        ( Node(..)
         , appendChild
+        , datum
         , decode
-        , deleteNode
-        , empty
         , encode
         , filter
         , get
@@ -12,34 +11,29 @@ module Canopy
         , flatten
         , leaf
         , map
+        , node
         , parent
         , path
         , prependChild
+        , remove
         , replace
-        , root
-        , rootMap
         , seek
         , siblings
-        , seeded
-        , tree
+        , toList
         , tuple
+        , updateChildren
+        , updateDatum
         )
 
-{-| A generic Tree, which nodes are designed to hold a value unique to the whole tree.
+{-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
 
 TODO:
 
   - rename datum to value
-  - expose underscore functions for nodes
-  - write a test for:
-    tree "foo" |> appendChild "foo" "bar"
-  - we could also add checks to ensure any added datum is unique to the tree (using a Set for instance)
-      - though would end in using Result much everywhere
   - reorg docs, code and tests using the same segmentation
   - replaceChildren
-  - do we actually need Tree? I think not
   - deal with non-unique nodes resiliently:
-      - delete all nodes matching the provided datum
+      - remove all nodes matching the provided datum
       - append/prepend a value to each nodes matching the provided datum
       - replace all nodes matching the provided datum
       - get -> first match from left
@@ -49,107 +43,112 @@ TODO:
 
 # Basics
 
-@docs Tree
+@docs Node
 
 
 # Building and manipulating a Tree
 
-@docs tree, seeded, empty, leaf, appendChild, prependChild, deleteNode
+@docs node, leaf, appendChild, prependChild, remove, updateChildren, updateDatum
 
 
 # Manipulating a Tree
 
-@docs replace, filter, flatMap, flatten, map, tuple, rootMap
+@docs replace, filter, flatMap, flatten, map, tuple
 
 
 # Querying a Tree
 
-@docs get, parent, path, root, seek, siblings
+@docs datum, get, parent, path, seek, siblings
 
 
 # Importing and exporting
 
-@docs decode, encode
+@docs decode, encode, toList
 
 -}
 
-import Canopy.Node as Node exposing (Node(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
-{-| A generic tree, that can either be `Empty` or `Seeded` with a root Node.
+{-| A tree node.
 -}
-type Tree a
-    = Empty
-    | Seeded (Node a)
+type Node a
+    = Node a (List (Node a))
+
+
+{-| Extracts children from a Node.
+-}
+children : Node a -> List (Node a)
+children (Node _ children) =
+    children
+
+
+{-| Extracts a datum from a Node.
+-}
+datum : Node a -> a
+datum (Node datum _) =
+    datum
+
+
+{-| Create a Node.
+-}
+node : a -> List (Node a) -> Node a
+node datum children =
+    Node datum children
 
 
 
 -- Decode
 
 
-{-| Decode a Tree. You must specify a datum decoder.
+{-| Decode a Node. You must specify a datum decoder.
 
-    case Decode.decodeString (decode Decode.string) tree of
+    case Decode.decodeString (decodeNode Decode.string) node of
         Ok decoded ->
             ...
         Err _ ->
             ...
 
 -}
-decode : Decoder a -> Decoder (Tree a)
+decode : Decoder a -> Decoder (Node a)
 decode decodeDatum =
-    Decode.oneOf
-        [ Decode.null Empty
-        , Decode.map Seeded (Node.decode decodeDatum)
-        ]
+    Decode.map2 Node
+        (Decode.field "value" decodeDatum)
+        (Decode.field "children" (Decode.list (Decode.lazy (\_ -> decode decodeDatum))))
 
 
 
 -- Encode
 
 
-{-| Encode a Tree. You must provide an encoder for the datum type.
+{-| Encode a Node. You must provide an encoder for the datum type.
 
     import Json.Encode as Encode
 
-    tree "foo" [ leaf "bar" ]
-        |> encode Encode.string
-        |> Encode.encode 0
-        -- {"value":"foo","children":[{"value":"bar",children:[]}]}
+        node "foo" [ leaf "bar" ]
+            |> encode Encode.string
+            |> Encode.encode 0
+            -- {"value":"foo","children":[{"value":"bar",children:[]}]}
 
 -}
-encode : (a -> Encode.Value) -> Tree a -> Encode.Value
-encode datumEncoder tree =
-    tree |> rootMap_ (Node.encode datumEncoder) (Encode.object [])
+encode : (a -> Encode.Value) -> Node a -> Encode.Value
+encode datumEncoder (Node datum children) =
+    Encode.object
+        [ ( "value", datumEncoder datum )
+        , ( "children", children |> List.map (encode datumEncoder) |> Encode.list )
+        ]
 
 
 
 -- Getters
 
 
-{-| Retrieve the root Node of a Tree, if it's not empty.
-
-    root (tree "foo") == Node "foo" []
-    root (Empty) == Nothing
-
--}
-root : Tree a -> Maybe (Node a)
-root tree =
-    case tree of
-        Empty ->
-            Nothing
-
-        Seeded root ->
-            Just root
-
-
 {-| Turn a Node into a tuple containing the datum and the parent datum, if any.
 -}
-tuple : Tree a -> Node a -> ( a, Maybe a )
-tuple tree node =
-    ( Node.datum node, tree |> parent (Node.datum node) |> Maybe.map Node.datum )
+tuple : Node a -> Node a -> ( a, Maybe a )
+tuple root node =
+    ( datum node, root |> parent (datum node) |> Maybe.map datum )
 
 
 
@@ -163,52 +162,38 @@ tuple tree node =
         == tree "foo" [ leaf "bar", leaf "qux" ]
 
 -}
-appendChild : a -> a -> Tree a -> Tree a
-appendChild target child tree =
-    let
-        appendChild_ node =
-            if target == Node.datum node then
-                node |> Node.updateChildren (Node.children node ++ [ leaf child ])
-            else
-                Node.updateChildren (node |> Node.children |> List.map appendChild_) node
-    in
-        tree |> rootMap appendChild_
+appendChild : a -> a -> Node a -> Node a
+appendChild target child node =
+    if target == datum node then
+        node |> updateChildren (children node ++ [ leaf child ])
+    else
+        node |> updateChildren (node |> children |> List.map (appendChild target child))
 
 
-{-| Deletes a Node from a Tree, referenced by its attached datum. Will silently
-refuse to delete a Node if it doesn't exist in the Tree.
+{-| Deletes a Node from a Tree, referenced by its attached datum. Noop when
+attempting to delete the tree itself.
 -}
-deleteNode : a -> Tree a -> Tree a
-deleteNode target tree =
+remove : a -> Node a -> Node a
+remove target tree =
     case tree |> parent target of
         Just parentNode ->
             let
                 newChildren =
-                    parentNode |> Node.children |> List.filter (\node -> Node.datum node /= target)
+                    parentNode |> children |> List.filter (\node -> datum node /= target)
 
                 newParent =
-                    parentNode |> Node.updateChildren newChildren
+                    parentNode |> updateChildren newChildren
             in
-                tree |> replace (Node.datum parentNode) newParent
+                tree |> replace (datum parentNode) newParent
 
         Nothing ->
-            if (tree |> root |> Maybe.map Node.datum) == Just target then
-                Empty
-            else
-                tree
-
-
-{-| Create an empty tree.
--}
-empty : Tree a
-empty =
-    Empty
+            tree
 
 
 {-| Filter a Tree, keeping only nodes which attached datum satisfies the
 provided test, and their ancestors up to the tree root.
 -}
-filter : (a -> Bool) -> Tree a -> Tree a
+filter : (a -> Bool) -> Node a -> Node a
 filter test tree =
     let
         toDelete =
@@ -219,28 +204,39 @@ filter test tree =
     in
         toDelete
             |> List.filter (\datum -> List.member datum toPreserve |> not)
-            |> List.foldl deleteNode tree
+            |> List.foldl remove tree
 
 
 {-| Map each node using a mapping function then flatten the result into a new list.
 -}
-flatMap : (Node a -> b) -> Tree a -> List b
-flatMap mapper tree =
-    tree |> rootMap_ (Node.flatMap mapper) []
+flatMap : (Node a -> b) -> Node a -> List b
+flatMap mapper node =
+    List.foldl
+        (\node acc -> List.concat [ acc, [ mapper node ], node |> children |> List.map mapper ])
+        [ mapper node ]
+        (children node)
 
 
 {-| Flatten a Tree.
 -}
-flatten : Tree a -> List (Node a)
-flatten tree =
-    tree |> flatMap identity
+flatten : Node a -> List (Node a)
+flatten node =
+    node |> flatMap identity
 
 
 {-| Find a Node in a Tree, identified by its datum.
 -}
-get : a -> Tree a -> Maybe (Node a)
-get target tree =
-    tree |> rootMap_ (Node.get target) Nothing
+get : a -> Node a -> Maybe (Node a)
+get target node =
+    if target == datum node then
+        Just node
+    else
+        node
+            |> children
+            |> List.map (get target)
+            |> List.filter ((/=) Nothing)
+            |> List.head
+            |> Maybe.withDefault Nothing
 
 
 {-| Create a Tree leaf node, a.k.a singleton.
@@ -252,24 +248,55 @@ leaf datum =
 
 {-| Map all nodes data in a Tree.
 -}
-map : (a -> b) -> Tree a -> Tree b
-map mapper tree =
-    tree |> rootMap (Node.map mapper)
+map : (a -> b) -> Node a -> Node b
+map mapper (Node datum children) =
+    Node (mapper datum) (children |> List.map (map mapper))
 
 
 {-| Retrieve the parent of a given node in a Tree, identified by its datum.
 -}
-parent : a -> Tree a -> Maybe (Node a)
-parent target tree =
-    tree |> rootMap_ (Node.parent target) Nothing
+parent : a -> Node a -> Maybe (Node a)
+parent target candidate =
+    candidate
+        |> children
+        |> List.foldl
+            (\node acc ->
+                case acc of
+                    Just found ->
+                        Just found
+
+                    Nothing ->
+                        if datum node == target then
+                            Just candidate
+                        else
+                            parent target node
+            )
+            Nothing
 
 
 {-| Compute the path to a Node from the root. Returns an empty list when
 the target Node doesn't exist in the tree.
 -}
-path : a -> Tree a -> List a
-path target tree =
-    tree |> rootMap_ (Node.path target) []
+path : a -> Node a -> List a
+path target rootNode =
+    let
+        path__ target node =
+            case parent target node of
+                Just parentNode ->
+                    path__ (datum parentNode) rootNode ++ [ datum parentNode ]
+
+                Nothing ->
+                    []
+    in
+        case parent target rootNode of
+            Nothing ->
+                if target == datum rootNode then
+                    [ target ]
+                else
+                    []
+
+            Just rootNode ->
+                path__ target rootNode ++ [ target ]
 
 
 {-| Prepend a new datum to a Node identified by its datum in a Tree.
@@ -279,66 +306,43 @@ path target tree =
         == tree "foo" [ leaf "baz", leaf "bar" ]
 
 -}
-prependChild : a -> a -> Tree a -> Tree a
-prependChild target child tree =
-    let
-        prependChild_ node =
-            if target == Node.datum node then
-                node |> Node.updateChildren (leaf child :: Node.children node)
-            else
-                Node.updateChildren (node |> Node.children |> List.map prependChild_) node
-    in
-        tree |> rootMap prependChild_
-
-
-{-| Map the tree root node.
--}
-rootMap : (Node a -> Node b) -> Tree a -> Tree b
-rootMap mapper tree =
-    tree |> rootMap_ (mapper >> Seeded) Empty
-
-
-rootMap_ : (Node a -> b) -> b -> Tree a -> b
-rootMap_ mapper default tree =
-    tree |> root |> Maybe.map mapper |> Maybe.withDefault default
-
-
-{-| Create a seeded Tree, with a root node having the provided datum attached.
-
-    tree "root" == Seeded (leaf "root")
-
--}
-seeded : a -> Tree a
-seeded datum =
-    Seeded (leaf datum)
+prependChild : a -> a -> Node a -> Node a
+prependChild target child node =
+    if target == datum node then
+        node |> updateChildren (leaf child :: children node)
+    else
+        updateChildren (node |> children |> List.map (prependChild target child)) node
 
 
 {-| Retrieve all data from nodes containing a datum satisfying a provided condition.
 -}
-seek : (a -> Bool) -> Tree a -> List a
-seek test tree =
-    tree |> rootMap_ (Node.seek test) []
+seek : (a -> Bool) -> Node a -> List a
+seek test node =
+    node
+        |> flatMap identity
+        |> List.filter (datum >> test)
+        |> List.map datum
 
 
 {-| Retrieve a Node siblings identified by its datum in a Tree.
 -}
-siblings : a -> Tree a -> List a
+siblings : a -> Node a -> List a
 siblings target tree =
     case parent target tree of
         Just (Node _ children) ->
             children
-                |> List.filter (\node -> Node.datum node /= target)
-                |> List.map Node.datum
+                |> List.filter (\node -> datum node /= target)
+                |> List.map datum
 
         Nothing ->
             []
 
 
-{-| Create a seeded tree.
+{-| Turn a tree of node into a list of tuples.
 -}
-tree : a -> List (Node a) -> Tree a
-tree datum children =
-    Seeded (Node datum children)
+toList : Node a -> List ( a, Maybe a )
+toList node =
+    node |> flatMap (tuple node)
 
 
 
@@ -347,6 +351,27 @@ tree datum children =
 
 {-| Replace a Node in a Tree.
 -}
-replace : a -> Node a -> Tree a -> Tree a
-replace target replacement tree =
-    tree |> rootMap (Node.replace target replacement)
+replace : a -> Node a -> Node a -> Node a
+replace target replacement root =
+    if datum root == target then
+        replacement
+    else
+        let
+            newChildren =
+                root |> children |> List.map (replace target replacement)
+        in
+            root |> updateChildren newChildren
+
+
+{-| Update a Node's children.
+-}
+updateChildren : List (Node a) -> Node a -> Node a
+updateChildren children (Node datum _) =
+    Node datum children
+
+
+{-| Update a Node's datum.
+-}
+updateDatum : a -> Node a -> Node a
+updateDatum datum (Node _ children) =
+    Node datum children
