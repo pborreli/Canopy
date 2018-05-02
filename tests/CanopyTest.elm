@@ -63,17 +63,17 @@ json =
 
 testAppendChild : Test
 testAppendChild =
-    describe "appendChild"
+    describe "append"
         [ node "foo" [ leaf "bar" ]
-            |> appendChild "foo" "baz"
+            |> append "foo" "baz"
             |> Expect.equal (node "foo" [ leaf "bar", leaf "baz" ])
             |> asTest "should append a child to a node"
         , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
-            |> appendChild "qux" "boo"
+            |> append "qux" "boo"
             |> Expect.equal (node "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
             |> asTest "should deeply append a child to a node"
         , node "foo" [ leaf "bar" ]
-            |> appendChild "non-existent" "baz"
+            |> append "non-existent" "baz"
             |> Expect.equal (node "foo" [ leaf "bar" ])
             |> asTest "should not append a node to a non-existent parent"
         ]
@@ -113,12 +113,12 @@ testFilter =
             |> asTest "should never filter out tree root"
         , testTree
             |> filter (String.contains "2")
-            |> flatMap datum
+            |> flatMap value
             |> Expect.equal [ "root", "node 2", "node 2.1", "node 2.2", "node 2.3" ]
             |> asTest "should selectively filter tree nodes"
         , testTree
             |> filter ((==) "node 2.2")
-            |> flatMap datum
+            |> flatMap value
             |> Expect.equal [ "root", "node 2", "node 2.2" ]
             |> asTest "should preserve parents"
         ]
@@ -128,7 +128,7 @@ testFlatMap : Test
 testFlatMap =
     describe "flatMap"
         [ testTree
-            |> flatMap (datum >> String.toUpper)
+            |> flatMap (value >> String.toUpper)
             |> Expect.equal
                 [ "ROOT"
                 , "NODE 1"
@@ -146,7 +146,7 @@ testFlatten : Test
 testFlatten =
     describe "flatten"
         [ testTree
-            |> flatMap datum
+            |> flatMap value
             |> Expect.equal
                 [ "root"
                 , "node 1"
@@ -222,12 +222,12 @@ testParent =
     describe "parent"
         [ testTree
             |> parent "node 2.3"
-            |> Maybe.map datum
+            |> Maybe.map value
             |> Expect.equal (Just "node 2")
             |> asTest "should find the parent of a given node"
         , testTree
             |> parent "node 2"
-            |> Maybe.map datum
+            |> Maybe.map value
             |> Expect.equal (Just "root")
             |> asTest "should find the parent when it's root"
         , testTree
@@ -275,17 +275,17 @@ testPath =
 
 testPrependChild : Test
 testPrependChild =
-    describe "prependChild"
+    describe "prepend"
         [ node "foo" [ leaf "bar" ]
-            |> prependChild "foo" "baz"
+            |> prepend "foo" "baz"
             |> Expect.equal (node "foo" [ leaf "baz", leaf "bar" ])
             |> asTest "should prepend a child to a node"
         , node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
-            |> prependChild "qux" "boo"
+            |> prepend "qux" "boo"
             |> Expect.equal (node "foo" [ leaf "bar", node "baz" [ node "qux" [ leaf "boo" ] ] ])
             |> asTest "should deeply prepend a child to a node"
         , node "foo" [ leaf "bar" ]
-            |> prependChild "non-existent" "baz"
+            |> prepend "non-existent" "baz"
             |> Expect.equal (node "foo" [ leaf "bar" ])
             |> asTest "should not prepend a node to a non-existent parent"
         ]
@@ -296,12 +296,12 @@ testRemove =
     describe "remove"
         [ testTree
             |> remove "node 2.1"
-            |> flatMap datum
+            |> flatMap value
             |> Expect.equal [ "root", "node 1", "node 2", "node 2.2", "node 2.3", "node 3" ]
             |> asTest "should delete a deeply nested node from a tree"
         , testTree
             |> remove "node 2"
-            |> flatMap datum
+            |> flatMap value
             |> Expect.equal [ "root", "node 1", "node 3" ]
             |> asTest "should delete a node from a tree"
         , testTree
@@ -311,19 +311,30 @@ testRemove =
         ]
 
 
-testReplace : Test
-testReplace =
-    describe "replace"
+testReplaceNode : Test
+testReplaceNode =
+    describe "replaceNode"
         [ testTree
-            |> replace "node 2.2" (leaf "blah")
+            |> replaceNode "node 2.2" (leaf "blah")
             |> get "blah"
             |> Expect.equal (Just (leaf "blah"))
             |> asTest "should replace a node in the tree"
         , testTree
-            |> replace "node 2" (node "node 2" [ leaf "blah" ])
+            |> replaceNode "node 2" (node "node 2" [ leaf "blah" ])
             |> get "node 2"
             |> Expect.equal (Just (node "node 2" [ leaf "blah" ]))
             |> asTest "should replace a node and children in the tree"
+        ]
+
+
+testReplaceValue : Test
+testReplaceValue =
+    describe "replaceValue"
+        [ testTree
+            |> replaceValue "node 2.2" "blah"
+            |> get "blah"
+            |> Expect.equal (Just (leaf "blah"))
+            |> asTest "should replace a node in the tree"
         ]
 
 
