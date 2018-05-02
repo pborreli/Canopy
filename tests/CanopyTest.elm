@@ -186,6 +186,22 @@ testGet =
         ]
 
 
+testLeaves : Test
+testLeaves =
+    describe "leaves"
+        [ testTree
+            |> leaves
+            |> Expect.equal
+                [ "node 1"
+                , "node 2.1"
+                , "node 2.2"
+                , "node 2.3"
+                , "node 3"
+                ]
+            |> asTest "should retrieve all tree leaves"
+        ]
+
+
 testMap : Test
 testMap =
     describe "map"

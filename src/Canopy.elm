@@ -10,6 +10,7 @@ module Canopy
         , flatMap
         , flatten
         , leaf
+        , leaves
         , map
         , node
         , parent
@@ -31,6 +32,8 @@ module Canopy
 TODO:
 
   - levels?
+  - leaves
+  - code examples for public API
   - deal with non-unique nodes resiliently:
       - remove all nodes matching the provided value
       - append/prepend a value to each nodes matching the provided value
@@ -57,7 +60,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, get, parent, path, seek, siblings
+@docs value, get, leaves, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -181,11 +184,30 @@ get target node =
             |> Maybe.withDefault Nothing
 
 
-{-| Create a node having no children (aka singleton).
+{-| Create a node having no children (singleton).
 -}
 leaf : a -> Node a
 leaf value =
     Node value []
+
+
+{-| Retrieve all leaves (singletons) from a tree.
+
+    node "root"
+        [ leaf "a leaf"
+        , node "branch"
+            [ leaf "another leaf" ]
+        ]
+        |> leaves
+        == [ "a leaf", "another leaf" ]
+
+-}
+leaves : Node a -> List a
+leaves node =
+    node
+        |> flatten
+        |> List.filter (\node -> children node == [])
+        |> List.map value
 
 
 {-| Map all nodes data in a Tree.
