@@ -36,6 +36,7 @@ TODO:
   - we could also add checks to ensure any added datum is unique to the tree (using a Set for instance)
       - though would end in using Result much everywhere
   - reorg docs, code and tests using the same segmentation
+  - replaceChildren
   - do we actually need Tree? I think not
   - deal with non-unique nodes resiliently:
       - delete all nodes matching the provided datum
@@ -130,7 +131,7 @@ encode datumEncoder tree =
 
 {-| Retrieve the root Node of a Tree, if it's not empty.
 
-    root (tree "foo") == Node (Id 0) "foo" []
+    root (tree "foo") == Node "foo" []
     root (Empty) == Nothing
 
 -}
@@ -214,10 +215,10 @@ filter test tree =
             tree |> seek (not << test)
 
         toPreserve =
-            tree |> seek test |> List.map (\id -> path id tree) |> List.concat
+            tree |> seek test |> List.map (\datum -> path datum tree) |> List.concat
     in
         toDelete
-            |> List.filter (\id -> List.member id toPreserve |> not)
+            |> List.filter (\datum -> List.member datum toPreserve |> not)
             |> List.foldl deleteNode tree
 
 
@@ -256,7 +257,7 @@ map mapper tree =
     tree |> rootMap (Node.map mapper)
 
 
-{-| Retrieve the parent of a given node in a Tree, by its Id.
+{-| Retrieve the parent of a given node in a Tree, identified by its datum.
 -}
 parent : a -> Tree a -> Maybe (Node a)
 parent target tree =
@@ -312,7 +313,7 @@ seeded datum =
     Seeded (leaf datum)
 
 
-{-| Retrieve all Ids from nodes containing a datum satisfying a provided condition.
+{-| Retrieve all data from nodes containing a datum satisfying a provided condition.
 -}
 seek : (a -> Bool) -> Tree a -> List a
 seek test tree =
