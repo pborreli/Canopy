@@ -17,6 +17,7 @@ module Canopy
         , leaves
         , level
         , map
+        , member
         , node
         , parent
         , path
@@ -37,9 +38,7 @@ module Canopy
 
 TODO:
 
-  - move
-  - appendNode, append -> appendValue?
-      - more generally, distinguish between working with nodes & values
+  - sort, sortBy
 
 
 # Basics
@@ -59,7 +58,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, children, count, get, leaves, level, parent, path, seek, siblings
+@docs value, children, count, get, leaves, level, member, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -385,6 +384,25 @@ level lvl node =
 map : (a -> b) -> Node a -> Node b
 map mapper (Node value children) =
     Node (mapper value) (children |> List.map (map mapper))
+
+
+{-| Check if a tree contains a value.
+
+    node "foo" [ node "bar" [ leaf "baz" ] ]
+        |> member "baz"
+    --> True
+
+    leaf "no"
+        |> member "yes"
+    --> False
+
+-}
+member : a -> Node a -> Bool
+member value node =
+    node
+        |> seek ((==) value)
+        |> List.length
+        |> (<) 0
 
 
 {-| Create a Node. Basically just an alias for the `Node` constructor.
