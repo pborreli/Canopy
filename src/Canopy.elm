@@ -3,6 +3,7 @@ module Canopy
         ( Node(..)
         , append
         , children
+        , count
         , decode
         , encode
         , filter
@@ -34,6 +35,10 @@ module Canopy
 
 {-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
 
+TODO:
+
+  - count
+
 
 # Basics
 
@@ -52,7 +57,7 @@ module Canopy
 
 # Querying a Tree
 
-@docs value, children, get, leaves, level, parent, path, seek, siblings
+@docs value, children, count, get, leaves, level, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -96,6 +101,18 @@ append target child node =
 children : Node a -> List (Node a)
 children (Node _ children) =
     children
+
+
+{-| Count nodes in a tree.
+
+    node 1 [node 2 [ node 3 [ leaf 4 ] ] ]
+    |> count
+    --> 4
+
+-}
+count : Node a -> Int
+count node =
+    foldl (\_ x -> x + 1) 0 node
 
 
 {-| Decode a Node. You must specify a value decoder.
