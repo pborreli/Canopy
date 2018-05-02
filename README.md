@@ -31,7 +31,7 @@ tree
         ]
 ```
 
-It exposes powerful hepers for working with tree data structures:
+It exposes powerful helpers for working with tree data structures:
 
 ```elm
 node 1
