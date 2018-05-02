@@ -98,13 +98,6 @@ children (Node _ children) =
     children
 
 
-{-| Extracts a value from a Node.
--}
-value : Node a -> a
-value (Node value _) =
-    value
-
-
 {-| Decode a Node. You must specify a value decoder.
 
     case Decode.decodeString (decodeNode Decode.string) node of
@@ -270,37 +263,6 @@ prepend target child node =
         updateChildren (node |> children |> List.map (prepend target child)) node
 
 
-{-| Retrieve all data from nodes containing a value satisfying a provided condition.
--}
-seek : (a -> Bool) -> Node a -> List a
-seek test node =
-    node
-        |> flatMap identity
-        |> List.filter (value >> test)
-        |> List.map value
-
-
-{-| Retrieve a Node siblings identified by its value in a Tree.
--}
-siblings : a -> Node a -> List a
-siblings target tree =
-    case parent target tree of
-        Just (Node _ children) ->
-            children
-                |> List.filter (\node -> value node /= target)
-                |> List.map value
-
-        Nothing ->
-            []
-
-
-{-| Turn a tree of node into a list of tuples.
--}
-toList : Node a -> List ( a, Maybe a )
-toList node =
-    node |> flatMap (tuple node)
-
-
 {-| Deletes a Node from a tree, referenced by its attached value.
 
 Noop when the target doesn't exist in the tree or when attempting to delete the
@@ -350,6 +312,37 @@ replaceValue target replacement root =
             root
 
 
+{-| Retrieve all data from nodes containing a value satisfying a provided condition.
+-}
+seek : (a -> Bool) -> Node a -> List a
+seek test node =
+    node
+        |> flatMap identity
+        |> List.filter (value >> test)
+        |> List.map value
+
+
+{-| Retrieve a Node siblings identified by its value in a Tree.
+-}
+siblings : a -> Node a -> List a
+siblings target tree =
+    case parent target tree of
+        Just (Node _ children) ->
+            children
+                |> List.filter (\node -> value node /= target)
+                |> List.map value
+
+        Nothing ->
+            []
+
+
+{-| Turn a tree of node into a list of tuples.
+-}
+toList : Node a -> List ( a, Maybe a )
+toList node =
+    node |> flatMap (tuple node)
+
+
 {-| Turn a Node into a tuple containing the value and the parent value, if any.
 -}
 tuple : Node a -> Node a -> ( a, Maybe a )
@@ -369,3 +362,10 @@ updateChildren children (Node value _) =
 updateValue : a -> Node a -> Node a
 updateValue value (Node _ children) =
     Node value children
+
+
+{-| Extracts a value from a Node.
+-}
+value : Node a -> a
+value (Node value _) =
+    value
