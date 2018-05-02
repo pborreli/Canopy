@@ -77,6 +77,21 @@ type Node a
     = Node a (List (Node a))
 
 
+{-| Append a new datum to a Node identified by its datum in a Tree.
+
+    tree "foo" [ leaf "bar"]
+        |> appendChild "foo" "baz"
+        == tree "foo" [ leaf "bar", leaf "qux" ]
+
+-}
+appendChild : a -> a -> Node a -> Node a
+appendChild target child node =
+    if target == datum node then
+        node |> updateChildren (children node ++ [ leaf child ])
+    else
+        node |> updateChildren (node |> children |> List.map (appendChild target child))
+
+
 {-| Extracts children from a Node.
 -}
 children : Node a -> List (Node a)
@@ -89,17 +104,6 @@ children (Node _ children) =
 datum : Node a -> a
 datum (Node datum _) =
     datum
-
-
-{-| Create a Node.
--}
-node : a -> List (Node a) -> Node a
-node datum children =
-    Node datum children
-
-
-
--- Decode
 
 
 {-| Decode a Node. You must specify a datum decoder.
@@ -118,10 +122,6 @@ decode decodeDatum =
         (Decode.field "children" (Decode.list (Decode.lazy (\_ -> decode decodeDatum))))
 
 
-
--- Encode
-
-
 {-| Encode a Node. You must provide an encoder for the datum type.
 
     import Json.Encode as Encode
@@ -138,56 +138,6 @@ encode datumEncoder (Node datum children) =
         [ ( "value", datumEncoder datum )
         , ( "children", children |> List.map (encode datumEncoder) |> Encode.list )
         ]
-
-
-
--- Getters
-
-
-{-| Turn a Node into a tuple containing the datum and the parent datum, if any.
--}
-tuple : Node a -> Node a -> ( a, Maybe a )
-tuple root node =
-    ( datum node, root |> parent (datum node) |> Maybe.map datum )
-
-
-
--- Manipulation
-
-
-{-| Append a new datum to a Node identified by its datum in a Tree.
-
-    tree "foo" [ leaf "bar"]
-        |> appendChild "foo" "baz"
-        == tree "foo" [ leaf "bar", leaf "qux" ]
-
--}
-appendChild : a -> a -> Node a -> Node a
-appendChild target child node =
-    if target == datum node then
-        node |> updateChildren (children node ++ [ leaf child ])
-    else
-        node |> updateChildren (node |> children |> List.map (appendChild target child))
-
-
-{-| Deletes a Node from a Tree, referenced by its attached datum. Noop when
-attempting to delete the tree itself.
--}
-remove : a -> Node a -> Node a
-remove target tree =
-    case tree |> parent target of
-        Just parentNode ->
-            let
-                newChildren =
-                    parentNode |> children |> List.filter (\node -> datum node /= target)
-
-                newParent =
-                    parentNode |> updateChildren newChildren
-            in
-                tree |> replace (datum parentNode) newParent
-
-        Nothing ->
-            tree
 
 
 {-| Filter a Tree, keeping only nodes which attached datum satisfies the
@@ -224,7 +174,7 @@ flatten node =
     node |> flatMap identity
 
 
-{-| Find a Node in a Tree, identified by its datum.
+{-| Get a Node from a tree of Nodes, identified by its datum.
 -}
 get : a -> Node a -> Maybe (Node a)
 get target node =
@@ -239,7 +189,7 @@ get target node =
             |> Maybe.withDefault Nothing
 
 
-{-| Create a Tree leaf node, a.k.a singleton.
+{-| Create a node having no children (aka singleton).
 -}
 leaf : a -> Node a
 leaf datum =
@@ -251,6 +201,13 @@ leaf datum =
 map : (a -> b) -> Node a -> Node b
 map mapper (Node datum children) =
     Node (mapper datum) (children |> List.map (map mapper))
+
+
+{-| Create a Node.
+-}
+node : a -> List (Node a) -> Node a
+node datum children =
+    Node datum children
 
 
 {-| Retrieve the parent of a given node in a Tree, identified by its datum.
@@ -345,8 +302,27 @@ toList node =
     node |> flatMap (tuple node)
 
 
+{-| Deletes a Node from a tree, referenced by its attached datum.
 
--- Update
+Noop when the target doesn't exist in the tree or when attempting to delete the
+tree itself.
+
+-}
+remove : a -> Node a -> Node a
+remove target tree =
+    case tree |> parent target of
+        Just parentNode ->
+            let
+                newChildren =
+                    parentNode |> children |> List.filter (\node -> datum node /= target)
+
+                newParent =
+                    parentNode |> updateChildren newChildren
+            in
+                tree |> replace (datum parentNode) newParent
+
+        Nothing ->
+            tree
 
 
 {-| Replace a Node in a Tree.
@@ -361,6 +337,13 @@ replace target replacement root =
                 root |> children |> List.map (replace target replacement)
         in
             root |> updateChildren newChildren
+
+
+{-| Turn a Node into a tuple containing the datum and the parent datum, if any.
+-}
+tuple : Node a -> Node a -> ( a, Maybe a )
+tuple root node =
+    ( datum node, root |> parent (datum node) |> Maybe.map datum )
 
 
 {-| Update a Node's children.
