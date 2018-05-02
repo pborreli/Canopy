@@ -37,7 +37,9 @@ module Canopy
 
 TODO:
 
-  - count
+  - move
+  - appendNode, append -> appendValue?
+      - more generally, distinguish between working with nodes & values
 
 
 # Basics
@@ -137,10 +139,10 @@ decode decodeDatum =
 
     import Json.Encode as Encode
 
-        node "foo" [ leaf "bar" ]
-            |> encode Encode.string
-            |> Encode.encode 0
-        --> "{\"value\":\"foo\",\"children\":[{\"value\":\"bar\",\"children\":[]}]}"
+    node "foo" [ leaf "bar" ]
+        |> encode Encode.string
+        |> Encode.encode 0
+    --> "{\"value\":\"foo\",\"children\":[{\"value\":\"bar\",\"children\":[]}]}"
 
 -}
 encode : (a -> Encode.Value) -> Node a -> Encode.Value
