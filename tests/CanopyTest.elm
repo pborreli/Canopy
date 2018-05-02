@@ -121,29 +121,6 @@ testFilter =
             |> flatMap value
             |> Expect.equal [ "root", "node 2", "node 2.2" ]
             |> asTest "should preserve parents"
-        , node 1
-            [ node 2
-                [ leaf 3
-                , node 4
-                    [ leaf 5
-                    , leaf 6
-                    , leaf 7
-                    , leaf 8
-                    ]
-                ]
-            ]
-            |> filter (\x -> x % 2 == 0)
-            |> Expect.equal
-                (node 1
-                    [ node 2
-                        [ node 4
-                            [ leaf 6
-                            , leaf 8
-                            ]
-                        ]
-                    ]
-                )
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -273,14 +250,6 @@ testLeaves =
                 , "node 3"
                 ]
             |> asTest "should retrieve all tree leaves"
-        , node "root"
-            [ leaf "a leaf"
-            , node "branch"
-                [ leaf "another leaf" ]
-            ]
-            |> leaves
-            |> Expect.equal [ "a leaf", "another leaf" ]
-            |> asTest "should make the code docs sample working"
         , node 1
             [ node 2
                 [ leaf 3
@@ -294,7 +263,7 @@ testLeaves =
             ]
             |> leaves
             |> Expect.equal [ 3, 5, 6, 7, 8 ]
-            |> asTest "should make the code docs sample working 2"
+            |> asTest "should work in a deeply fashion"
         ]
 
 
@@ -317,10 +286,6 @@ testMap =
                     ]
                 )
             |> asTest "should map a tree"
-        , node "root" [ leaf "foo", node "bar" [ leaf "baz" ] ]
-            |> map String.toUpper
-            |> Expect.equal (node "ROOT" [ leaf "FOO", node "BAR" [ leaf "BAZ" ] ])
-            |> asTest "should make code docs working"
         ]
 
 
@@ -329,7 +294,7 @@ testNode =
     describe "node"
         [ node "foo" [ leaf "bar", node "baz" [ leaf "qux" ] ]
             |> Expect.equal (Node "foo" ([ Node "bar" [], Node "baz" ([ Node "qux" [] ]) ]))
-            |> asTest "hello"
+            |> asTest "should create a node"
         ]
 
 
@@ -386,10 +351,6 @@ testPath =
             |> path "qux"
             |> Expect.equal [ "foo", "baz", "qux" ]
             |> asTest "should find the path to a leaf at the second level"
-        , node "root" [ node "foo" [ node "bar" [ leaf "baz" ] ] ]
-            |> path "baz"
-            |> Expect.equal [ "root", "foo", "bar", "baz" ]
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -444,10 +405,6 @@ testReplaceNode =
             |> get "node 2"
             |> Expect.equal (Just (node "node 2" [ leaf "blah" ]))
             |> asTest "should replace a node and children in the tree"
-        , node "root" [ node "foo" [ leaf "bar" ] ]
-            |> replaceNode "foo" (leaf "bar")
-            |> Expect.equal (node "root" [ leaf "bar" ])
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -459,10 +416,6 @@ testReplaceValue =
             |> get "blah"
             |> Expect.equal (Just (leaf "blah"))
             |> asTest "should replace a node in the tree"
-        , node "root" [ node "foo" [ leaf "bar" ] ]
-            |> replaceValue "foo" "baz"
-            |> Expect.equal (node "root" [ node "baz" [ leaf "bar" ] ])
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -477,10 +430,6 @@ testSeek =
             |> seek (String.startsWith "node")
             |> Expect.equal [ "node 1", "node 2", "node 2.1", "node 2.2", "node 2.3", "node 3" ]
             |> asTest "should seek a tree 2"
-        , node 1 [ node 2 [ leaf 3, leaf 4, leaf 5 ] ]
-            |> seek (\x -> x > 3)
-            |> Expect.equal [ 4, 5 ]
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -491,10 +440,6 @@ testSiblings =
             |> siblings "node 2.2"
             |> Expect.equal [ "node 2.1", "node 2.3" ]
             |> asTest "should retrieve node siblings across the tree"
-        , node "foo" [ leaf "a", node "b" [ leaf "x" ], leaf "c" ]
-            |> siblings "c"
-            |> Expect.equal [ "a", "b" ]
-            |> asTest "should make the code docs sample working"
         ]
 
 
@@ -513,15 +458,6 @@ testToList =
                 , ( "node 3", Just "root" )
                 ]
             |> asTest "should turn a node into a list of tuples"
-        , node "root" [ node "foo" [ leaf "bar" ], leaf "baz" ]
-            |> toList
-            |> Expect.equal
-                [ ( "root", Nothing )
-                , ( "foo", Just "root" )
-                , ( "bar", Just "foo" )
-                , ( "baz", Just "root" )
-                ]
-            |> asTest "should make the code docs sample working"
         ]
 
 

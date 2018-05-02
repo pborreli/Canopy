@@ -2,7 +2,7 @@ module Canopy
     exposing
         ( Node(..)
         , append
-        , value
+        , children
         , decode
         , encode
         , filter
@@ -26,6 +26,7 @@ module Canopy
         , tuple
         , updateChildren
         , updateValue
+        , value
         )
 
 {-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
@@ -60,7 +61,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, get, leaves, parent, path, seek, siblings
+@docs value, children, get, leaves, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -83,7 +84,7 @@ type Node a
 
     node "foo" [ leaf "bar"]
         |> append "foo" "baz"
-        == node "foo" [ leaf "bar", leaf "qux" ]
+    --> node "foo" [ leaf "bar", leaf "baz" ]
 
 -}
 append : a -> a -> Node a -> Node a
@@ -98,7 +99,7 @@ append target child node =
 
     node "foo" [ leaf "bar" ]
         |> children
-        == [ leaf "bar" ]
+    --> [ leaf "bar" ]
 
 -}
 children : Node a -> List (Node a)
@@ -108,13 +109,13 @@ children (Node _ children) =
 
 {-| Decode a Node. You must specify a value decoder.
 
-    import Json.Decode exposing (decodeString)
+    import Json.Decode as Decode
 
-    case decodeString (decodeNode Decode.string) node of
-        Ok decoded ->
-            ...
-        Err _ ->
-            ...
+    json : String
+    json = "{\"value\":\"foo\",\"children\":[{\"value\":\"bar\",\"children\":[]}]}"
+
+    Decode.decodeString (decode Decode.string) json
+    --> Ok (node "foo" [ leaf "bar" ])
 
 -}
 decode : Decoder a -> Decoder (Node a)
@@ -131,7 +132,7 @@ decode decodeDatum =
         node "foo" [ leaf "bar" ]
             |> encode Encode.string
             |> Encode.encode 0
-            -- {"value":"foo","children":[{"value":"bar",children:[]}]}
+        --> "{\"value\":\"foo\",\"children\":[{\"value\":\"bar\",\"children\":[]}]}"
 
 -}
 encode : (a -> Encode.Value) -> Node a -> Encode.Value
@@ -145,26 +146,26 @@ encode valueEncoder (Node value children) =
 {-| Filter a Tree, keeping only nodes which attached value satisfies the
 provided test and their ancestors, up to the tree root.
 
-    node 2
-        [ leaf 3
-        , node 4
-            [ leaf 5
-            , leaf 6
-            , leaf 7
-            , leaf 8
+    node 1
+        [ node 2
+            [ leaf 3
+            , node 4
+                [ leaf 5
+                , leaf 6
+                , leaf 7
+                , leaf 8
+                ]
             ]
         ]
         |> filter (\x -> x % 2 == 0)
-        |> ==
-            (node 1
-                [ node 2
-                    [ node 4
-                        [ leaf 6
-                        , leaf 8
-                        ]
+    --> node 1
+            [ node 2
+                [ node 4
+                    [ leaf 6
+                    , leaf 8
                     ]
                 ]
-            )
+            ]
 
 -}
 filter : (a -> Bool) -> Node a -> Node a
@@ -183,9 +184,9 @@ filter test tree =
 
 {-| Map each node using a mapping function then flatten the result into a new list.
 
-    node "foo" [ node "bar" [ node "baz" ] ]
+    node "foo" [ node "bar" [ leaf "baz" ] ]
         |> flatMap (value >> String.toUpper)
-        == [ "FOO", "BAR", "BAZ" ]
+    --> [ "FOO", "BAR", "BAZ" ]
 
 -}
 flatMap : (Node a -> b) -> Node a -> List b
@@ -204,7 +205,11 @@ flatMap mapper tree =
 
     node "root" [ node "foo" [ leaf "bar", leaf "baz" ] ]
         |> flatten
-        == [ "root", "foo", "bar", "baz" ]
+    --> [ node "root" [ node "foo" [ leaf "bar", leaf "baz" ] ]
+        , node "foo" [ leaf "bar", leaf "baz" ]
+        , leaf "bar"
+        , leaf "baz"
+        ]
 
 -}
 flatten : Node a -> List (Node a)
@@ -220,7 +225,7 @@ and parent value, starting with the root.
     , ( "bar", Just "foo" )
     ]
         |> fromList
-        == Just (node "foo" [ node "foo" [ leaf "bar" ] ])
+    --> Just (node "root" [ node "foo" [ leaf "bar" ] ])
 
 -}
 fromList : List ( a, Maybe a ) -> Maybe (Node a)
@@ -248,7 +253,7 @@ fromList nodes =
 
     node "root" [ leaf "bar" ]
         |> get "bar"
-        |> Just (leaf "bar")
+    --> Just (leaf "bar")
 
 -}
 get : a -> Node a -> Maybe (Node a)
@@ -266,7 +271,8 @@ get target node =
 
 {-| Create a node having no children (singleton).
 
-    leaf "foo" == Node "foo" []
+    leaf "foo"
+    --> Node "foo" []
 
 -}
 leaf : a -> Node a
@@ -282,7 +288,7 @@ leaf value =
             [ leaf "another leaf" ]
         ]
         |> leaves
-        == [ "a leaf", "another leaf" ]
+    --> [ "a leaf", "another leaf" ]
 
 -}
 leaves : Node a -> List a
@@ -297,7 +303,7 @@ leaves tree =
 
     node "root" [ leaf "foo", node "bar" [ leaf "baz" ] ]
         |> map String.toUpper
-        == node "ROOT" [ leaf "FOO", node "BAR" [ leaf "BAZ" ] ]
+    --> node "ROOT" [ leaf "FOO", node "BAR" [ leaf "BAZ" ] ]
 
 -}
 map : (a -> b) -> Node a -> Node b
@@ -316,7 +322,7 @@ node value children =
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> parent "bar"
-        == Just (node "foo" [ leaf "bar" ])
+    --> Just (node "foo" [ leaf "bar" ])
 
 -}
 parent : a -> Node a -> Maybe (Node a)
@@ -343,7 +349,7 @@ the target Node doesn't exist in the tree.
 
     node "root" [ node "foo" [ node "bar" [ leaf "baz" ] ] ]
         |> path "baz"
-        == [ "root", "foo", "bar", "baz" ]
+    --> [ "root", "foo", "bar", "baz" ]
 
 -}
 path : a -> Node a -> List a
@@ -372,7 +378,7 @@ path target rootNode =
 
     node "foo" [ leaf "bar"]
         |> prepend "foo" "baz"
-        == node "foo" [ leaf "baz", leaf "bar" ]
+    --> node "foo" [ leaf "baz", leaf "bar" ]
 
 -}
 prepend : a -> a -> Node a -> Node a
@@ -390,7 +396,7 @@ tree itself.
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> remove "bar"
-        == node "root" [ leaf "foo" ]
+    --> node "root" [ leaf "foo" ]
 
 -}
 remove : a -> Node a -> Node a
@@ -433,7 +439,7 @@ replaceNode target replacement root =
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> replaceValue "foo" "baz"
-        == node "root" [ node "baz" [ leaf "bar" ] ]
+    --> node "root" [ node "baz" [ leaf "bar" ] ]
 
 -}
 replaceValue : a -> a -> Node a -> Node a
@@ -450,7 +456,7 @@ replaceValue target replacement root =
 
     node 1 [ node 2 [ leaf 3, leaf 4, leaf 5 ] ]
         |> seek (\x -> x > 3)
-        == [ 4, 5 ]
+    --> [ 4, 5 ]
 
 -}
 seek : (a -> Bool) -> Node a -> List a
@@ -465,7 +471,7 @@ seek test node =
 
     node "foo" [ leaf "a", node "b" [ leaf "x" ], leaf "c" ]
         |> siblings "c"
-        == [ "a", "b" ]
+    --> [ "a", "b" ]
 
 -}
 siblings : a -> Node a -> List a
@@ -484,11 +490,11 @@ siblings target tree =
 
     node "root" [ node "foo" [ leaf "bar" ], leaf "baz" ]
         |> toList
-        == [ ( "root", Nothing )
-           , ( "foo", Just "root")
-           , ( "bar", Just "foo")
-           , ( "baz", Just "root")
-           ]
+    --> [ ( "root", Nothing )
+        , ( "foo", Just "root")
+        , ( "bar", Just "foo")
+        , ( "baz", Just "root")
+        ]
 
 -}
 toList : Node a -> List ( a, Maybe a )
