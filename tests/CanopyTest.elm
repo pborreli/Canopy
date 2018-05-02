@@ -79,6 +79,29 @@ testAppendChild =
         ]
 
 
+testBuildingAPI : Test
+testBuildingAPI =
+    describe "building API"
+        [ node "root"
+            [ node "foo"
+                [ leaf "bar" ]
+            , node "baz"
+                [ leaf "qux" ]
+            ]
+            |> remove "baz"
+            |> append "foo" "bingo"
+            |> Expect.equal
+                (node "root"
+                    [ node "foo"
+                        [ leaf "bar"
+                        , leaf "bingo"
+                        ]
+                    ]
+                )
+            |> asTest "should allow building a tree"
+        ]
+
+
 testDecode : Test
 testDecode =
     describe "decode"
@@ -186,6 +209,16 @@ testFlatten =
                 , Node 8 []
                 ]
             |> asTest "should work with integers"
+        , node 1
+            [ node 2
+                [ leaf 3, leaf 4 ]
+            , node 5
+                [ leaf 6 ]
+            ]
+            |> flatMap (value >> (*) 2)
+            |> List.sum
+            |> Expect.equal 42
+            |> asTest "should work with integer 2"
         ]
 
 
