@@ -12,6 +12,7 @@ module Canopy
         , fromList
         , leaf
         , leaves
+        , level
         , map
         , node
         , parent
@@ -31,18 +32,6 @@ module Canopy
 
 {-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
 
-TODO:
-
-  - levels?
-  - code examples for public API
-  - deal with non-unique nodes resiliently:
-      - remove all nodes matching the provided value
-      - append/prepend a value to each nodes matching the provided value
-      - replace all nodes matching the provided value
-      - get -> first match from left
-      - parent -> first match from left
-      - siblings -> first match from left
-
 
 # Basics
 
@@ -61,7 +50,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, children, get, leaves, parent, path, seek, siblings
+@docs value, children, get, leaves, level, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -297,6 +286,30 @@ leaves tree =
         |> flatten
         |> List.filter (\node -> children node == [])
         |> List.map value
+
+
+{-| Retrieve all nodes at a given level in the tree.
+
+    node "root"
+        [ node "1" [ node "1.1" [ leaf "1.1.1" ] ]
+        , node "2" [ node "2.1" [ leaf "2.1.1" ] ]
+        ]
+        |> level 3
+
+    node "root"
+        [ node "1" [ node "1.1" [ leaf "1.1.1" ] ]
+        , node "2" [ node "2.1" [ leaf "2.1.1" ] ]
+        ]
+        |> level 2
+    --> [ node "1.1" [ leaf "1.1.1" ], node "2.1" [ leaf "2.1.1" ] ]
+
+-}
+level : Int -> Node a -> List (Node a)
+level lvl node =
+    if lvl <= 0 then
+        [ node ]
+    else
+        node |> children |> List.map (level (lvl - 1)) |> List.concat
 
 
 {-| Map all node values in a Tree.

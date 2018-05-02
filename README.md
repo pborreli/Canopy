@@ -1,9 +1,11 @@
 Canopy
 ======
 
-An Elm generic Tree API.
+A Generic Tree API.
 
-This is work in progress.
+```elm
+TODO
+```
 
 License
 -------

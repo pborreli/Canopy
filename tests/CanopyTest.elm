@@ -267,6 +267,30 @@ testLeaves =
         ]
 
 
+testLevel : Test
+testLevel =
+    describe "level"
+        [ testTree
+            |> level 0
+            |> Expect.equal [ testTree ]
+            |> asTest "should retrieve root level"
+        , testTree
+            |> level 1
+            |> List.map value
+            |> Expect.equal [ "node 1", "node 2", "node 3" ]
+            |> asTest "should retrieve level 1 nodes"
+        , testTree
+            |> level 2
+            |> List.map value
+            |> Expect.equal [ "node 2.1", "node 2.2", "node 2.3" ]
+            |> asTest "should retrieve level 2 nodes"
+        , testTree
+            |> level -999
+            |> Expect.equal [ testTree ]
+            |> asTest "should handle negative levels"
+        ]
+
+
 testMap : Test
 testMap =
     describe "map"

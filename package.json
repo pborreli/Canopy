@@ -1,13 +1,13 @@
 {
   "name": "canopy",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "An Elm tree library.",
+  "private": true,
   "scripts": {
     "test": "elm-doc-test && elm-test"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Allo-Media <contact@allo-media.net>",
+  "license": "MIT",
   "devDependencies": {
     "elm": "^0.18.0",
     "elm-analyse": "^0.14.2",
