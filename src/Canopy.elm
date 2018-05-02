@@ -25,6 +25,7 @@ module Canopy
         , remove
         , replaceNode
         , replaceValue
+        , seed
         , seek
         , siblings
         , toList
@@ -39,6 +40,10 @@ module Canopy
 TODO:
 
   - sort, sortBy
+  - reverse
+  - minimum/maximum : List comparable -> Maybe comparable
+  - all/any
+  - check that we have actual tests for main fns
 
 
 # Basics
@@ -48,7 +53,7 @@ TODO:
 
 # Building and manipulating a Tree
 
-@docs node, leaf, append, prepend, remove, updateChildren, updateValue
+@docs node, leaf, append, prepend, remove, seed, updateChildren, updateValue
 
 
 # Manipulating a Tree
@@ -168,13 +173,13 @@ provided test and their ancestors, up to the tree root.
         ]
         |> filter (\x -> x % 2 == 0)
     --> node 1
-            [ node 2
-                [ node 4
-                    [ leaf 6
-                    , leaf 8
-                    ]
-                ]
-            ]
+    -->    [ node 2
+    -->        [ node 4
+    -->            [ leaf 6
+    -->            , leaf 8
+    -->            ]
+    -->        ]
+    -->    ]
 
 -}
 filter : (a -> Bool) -> Node a -> Node a
@@ -215,10 +220,10 @@ flatMap mapper tree =
     node "root" [ node "foo" [ leaf "bar", leaf "baz" ] ]
         |> flatten
     --> [ node "root" [ node "foo" [ leaf "bar", leaf "baz" ] ]
-        , node "foo" [ leaf "bar", leaf "baz" ]
-        , leaf "bar"
-        , leaf "baz"
-        ]
+    --> , node "foo" [ leaf "bar", leaf "baz" ]
+    --> , leaf "bar"
+    --> , leaf "baz"
+    --> ]
 
 -}
 flatten : Node a -> List (Node a)
@@ -363,7 +368,9 @@ leaves tree =
         , node "2" [ node "2.1" [ leaf "2.1.1" ] ]
         ]
         |> level 2
-    --> [ node "1.1" [ leaf "1.1.1" ], node "2.1" [ leaf "2.1.1" ] ]
+    --> [ node "1.1" [ leaf "1.1.1" ]
+    --> , node "2.1" [ leaf "2.1.1" ]
+    --> ]
 
 -}
 level : Int -> Node a -> List (Node a)
@@ -514,7 +521,7 @@ remove target tree =
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> replaceNode "foo" (leaf "bar")
-        == node "root" [ leaf "bar" ]
+    --> node "root" [ leaf "bar" ]
 
 -}
 replaceNode : a -> Node a -> Node a -> Node a
@@ -561,7 +568,25 @@ seek test node =
         |> List.map value
 
 
-{-| Retrieve siblings of a Node identified by its value in a Tree.
+{-| Seed a tree.
+
+    seed (\x -> List.range 1 (x - 1)) 4
+    --> node 4
+    -->   [ leaf 1
+    -->   , node 2 [ leaf 1 ]
+    -->   , node 3
+    -->       [ leaf 1
+    -->       , node 2 [ leaf 1 ]
+    -->       ]
+    -->   ]
+
+-}
+seed : (a -> List a) -> a -> Node a
+seed seeder init =
+    Node init (seeder init |> List.map (seed seeder))
+
+
+{-| Retrieve siblings of a node identified by its value in a Tree.
 
     node "foo" [ leaf "a", node "b" [ leaf "x" ], leaf "c" ]
         |> siblings "c"
@@ -585,10 +610,10 @@ siblings target tree =
     node "root" [ node "foo" [ leaf "bar" ], leaf "baz" ]
         |> toList
     --> [ ( "root", Nothing )
-        , ( "foo", Just "root")
-        , ( "bar", Just "foo")
-        , ( "baz", Just "root")
-        ]
+    --> , ( "foo", Just "root")
+    --> , ( "bar", Just "foo")
+    --> , ( "baz", Just "root")
+    --> ]
 
 -}
 toList : Node a -> List ( a, Maybe a )
