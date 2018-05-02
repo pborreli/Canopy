@@ -9,6 +9,7 @@ module Canopy
         , get
         , flatMap
         , flatten
+        , fromList
         , leaf
         , leaves
         , map
@@ -32,7 +33,6 @@ module Canopy
 TODO:
 
   - levels?
-  - leaves
   - code examples for public API
   - deal with non-unique nodes resiliently:
       - remove all nodes matching the provided value
@@ -65,7 +65,7 @@ TODO:
 
 # Importing and exporting
 
-@docs decode, encode, toList
+@docs decode, encode, fromList, toList
 
 -}
 
@@ -73,7 +73,7 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 
 
-{-| A tree node.
+{-| A [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
 -}
 type Node a
     = Node a (List (Node a))
@@ -94,7 +94,12 @@ append target child node =
         node |> updateChildren (node |> children |> List.map (append target child))
 
 
-{-| Extracts children from a Node.
+{-| Extracts the children of a Node.
+
+    node "foo" [ leaf "bar" ]
+        |> children
+        == [ leaf "bar" ]
+
 -}
 children : Node a -> List (Node a)
 children (Node _ children) =
@@ -103,7 +108,9 @@ children (Node _ children) =
 
 {-| Decode a Node. You must specify a value decoder.
 
-    case Decode.decodeString (decodeNode Decode.string) node of
+    import Json.Decode exposing (decodeString)
+
+    case decodeString (decodeNode Decode.string) node of
         Ok decoded ->
             ...
         Err _ ->
@@ -136,7 +143,10 @@ encode valueEncoder (Node value children) =
 
 
 {-| Filter a Tree, keeping only nodes which attached value satisfies the
-provided test, and their ancestors up to the tree root.
+provided test and their ancestors, up to the tree root.
+
+    node 1 [ node 2 [ leaf 3, node 4 [ leaf 5, leaf 6 ] ]]
+
 -}
 filter : (a -> Bool) -> Node a -> Node a
 filter test tree =
@@ -155,18 +165,59 @@ filter test tree =
 {-| Map each node using a mapping function then flatten the result into a new list.
 -}
 flatMap : (Node a -> b) -> Node a -> List b
-flatMap mapper node =
+flatMap mapper tree =
     List.foldl
-        (\node acc -> List.concat [ acc, [ mapper node ], node |> children |> List.map mapper ])
-        [ mapper node ]
-        (children node)
+        (\node acc ->
+            acc
+                ++ [ mapper node ]
+                ++ (node |> children |> List.map (flatMap mapper) |> List.concat)
+        )
+        [ mapper tree ]
+        (children tree)
 
 
-{-| Flatten a Tree.
+{-| Flatten a Tree, from top to bottom and leftmost nodes to rightmost ones.
+
+    node "root" [ node "foo" [ leaf "bar", leaf "baz" ] ]
+        |> flatten
+        == [ "root", "foo", "bar", "baz" ]
+
 -}
 flatten : Node a -> List (Node a)
 flatten node =
     node |> flatMap identity
+
+
+{-| Build a tree from a list of hierarchy descriptors, which are tuples of value
+and parent value, starting with the root.
+
+    [ ( "root", Nothing )
+    , ( "foo", Just "root" )
+    , ( "bar", Just "foo" )
+    ]
+        |> fromList
+        == node "foo" [ node "foo" [ leaf "bar" ] ]
+
+-}
+fromList : List ( a, Maybe a ) -> Maybe (Node a)
+fromList nodes =
+    case List.head nodes of
+        Just ( root, Nothing ) ->
+            nodes
+                |> List.foldl
+                    (\( value, maybeParent ) acc ->
+                        case maybeParent of
+                            Just parent ->
+                                acc |> append parent value
+
+                            Nothing ->
+                                acc
+                    )
+                    (leaf root)
+                |> Just
+
+        _ ->
+            Nothing
 
 
 {-| Get a Node from a tree of Nodes, identified by its value.
@@ -203,14 +254,19 @@ leaf value =
 
 -}
 leaves : Node a -> List a
-leaves node =
-    node
+leaves tree =
+    tree
         |> flatten
         |> List.filter (\node -> children node == [])
         |> List.map value
 
 
 {-| Map all nodes data in a Tree.
+
+    node "root" [ leaf "foo", node "bar" [ leaf "baz" ] ]
+        |> map String.toUpper
+        == node "ROOT" [ leaf "FOO", node "BAR" [ leaf "BAZ" ] ]
+
 -}
 map : (a -> b) -> Node a -> Node b
 map mapper (Node value children) =
@@ -386,7 +442,7 @@ updateValue value (Node _ children) =
     Node value children
 
 
-{-| Extracts a value from a Node.
+{-| Extracts the value of a Node.
 -}
 value : Node a -> a
 value (Node value _) =
