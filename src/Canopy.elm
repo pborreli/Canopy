@@ -362,6 +362,9 @@ leaves tree =
         , node "2" [ node "2.1" [ leaf "2.1.1" ] ]
         ]
         |> level 3
+    --> [ leaf "1.1.1"
+    --> , leaf "2.1.1"
+    --> ]
 
     node "root"
         [ node "1" [ node "1.1" [ leaf "1.1.1" ] ]
