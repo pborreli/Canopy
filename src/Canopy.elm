@@ -9,6 +9,8 @@ module Canopy
         , get
         , flatMap
         , flatten
+        , foldl
+        , foldr
         , fromList
         , leaf
         , leaves
@@ -45,7 +47,7 @@ module Canopy
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, flatMap, flatten, map, tuple
+@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, tuple
 
 
 # Querying a Tree
@@ -204,6 +206,48 @@ flatMap mapper tree =
 flatten : Node a -> List (Node a)
 flatten node =
     node |> flatMap identity
+
+
+{-| Reduce all tree values from top to bottom, left to right.
+
+    node 1 [ node 2 [ leaf 3 ] ]
+        |> foldl (+) 0
+    --> 6
+
+    node "a"
+        [ node "b" [ leaf "c" ]
+        , node "d" [ node "e" [ leaf "f" ] ]
+        , leaf "g"
+        ]
+        |> foldl (\value acc -> acc ++ value) ""
+    --> "abcdefg"
+
+-}
+foldl : (a -> b -> b) -> b -> Node a -> b
+foldl fn acc node =
+    node
+        |> toList
+        |> List.map Tuple.first
+        |> List.foldl fn acc
+
+
+{-| Reduce all tree values from top to bottom, right to left.
+
+    node "a"
+        [ node "b" [ leaf "c" ]
+        , node "d" [ node "e" [ leaf "f" ] ]
+        , leaf "g"
+        ]
+        |> foldr (\value acc -> acc ++ value) ""
+    --> "gfedcba"
+
+-}
+foldr : (a -> b -> b) -> b -> Node a -> b
+foldr fn acc node =
+    node
+        |> toList
+        |> List.map Tuple.first
+        |> List.foldr fn acc
 
 
 {-| Build a tree from a list of hierarchy descriptors, which are tuples of value
