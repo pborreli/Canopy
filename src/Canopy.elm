@@ -145,7 +145,26 @@ encode valueEncoder (Node value children) =
 {-| Filter a Tree, keeping only nodes which attached value satisfies the
 provided test and their ancestors, up to the tree root.
 
-    node 1 [ node 2 [ leaf 3, node 4 [ leaf 5, leaf 6 ] ]]
+    node 2
+        [ leaf 3
+        , node 4
+            [ leaf 5
+            , leaf 6
+            , leaf 7
+            , leaf 8
+            ]
+        ]
+        |> filter (\x -> x % 2 == 0)
+        |> ==
+            (node 1
+                [ node 2
+                    [ node 4
+                        [ leaf 6
+                        , leaf 8
+                        ]
+                    ]
+                ]
+            )
 
 -}
 filter : (a -> Bool) -> Node a -> Node a
@@ -163,14 +182,19 @@ filter test tree =
 
 
 {-| Map each node using a mapping function then flatten the result into a new list.
+
+    node "foo" [ node "bar" [ node "baz" ] ]
+        |> flatMap (value >> String.toUpper)
+        == [ "FOO", "BAR", "BAZ" ]
+
 -}
 flatMap : (Node a -> b) -> Node a -> List b
 flatMap mapper tree =
     List.foldl
         (\node acc ->
             acc
-                ++ [ mapper node ]
-                ++ (node |> children |> List.map (flatMap mapper) |> List.concat)
+                ++ mapper node
+                :: (children node |> List.map (flatMap mapper) |> List.concat)
         )
         [ mapper tree ]
         (children tree)
@@ -196,7 +220,7 @@ and parent value, starting with the root.
     , ( "bar", Just "foo" )
     ]
         |> fromList
-        == node "foo" [ node "foo" [ leaf "bar" ] ]
+        == Just (node "foo" [ node "foo" [ leaf "bar" ] ])
 
 -}
 fromList : List ( a, Maybe a ) -> Maybe (Node a)
@@ -221,6 +245,11 @@ fromList nodes =
 
 
 {-| Get a Node from a tree of Nodes, identified by its value.
+
+    node "root" [ leaf "bar" ]
+        |> get "bar"
+        |> Just (leaf "bar")
+
 -}
 get : a -> Node a -> Maybe (Node a)
 get target node =
@@ -236,6 +265,9 @@ get target node =
 
 
 {-| Create a node having no children (singleton).
+
+    leaf "foo" == Node "foo" []
+
 -}
 leaf : a -> Node a
 leaf value =
@@ -261,7 +293,7 @@ leaves tree =
         |> List.map value
 
 
-{-| Map all nodes data in a Tree.
+{-| Map all node values in a Tree.
 
     node "root" [ leaf "foo", node "bar" [ leaf "baz" ] ]
         |> map String.toUpper
@@ -273,7 +305,7 @@ map mapper (Node value children) =
     Node (mapper value) (children |> List.map (map mapper))
 
 
-{-| Create a Node.
+{-| Create a Node. Basically just an alias for the `Node` constructor.
 -}
 node : a -> List (Node a) -> Node a
 node value children =
@@ -281,6 +313,11 @@ node value children =
 
 
 {-| Retrieve the parent of a given node in a Tree, identified by its value.
+
+    node "root" [ node "foo" [ leaf "bar" ] ]
+        |> parent "bar"
+        == Just (node "foo" [ leaf "bar" ])
+
 -}
 parent : a -> Node a -> Maybe (Node a)
 parent target candidate =
@@ -303,6 +340,11 @@ parent target candidate =
 
 {-| Compute the path to a Node from the root. Returns an empty list when
 the target Node doesn't exist in the tree.
+
+    node "root" [ node "foo" [ node "bar" [ leaf "baz" ] ] ]
+        |> path "baz"
+        == [ "root", "foo", "bar", "baz" ]
+
 -}
 path : a -> Node a -> List a
 path target rootNode =
@@ -346,6 +388,10 @@ prepend target child node =
 Noop when the target doesn't exist in the tree or when attempting to delete the
 tree itself.
 
+    node "root" [ node "foo" [ leaf "bar" ] ]
+        |> remove "bar"
+        == node "root" [ leaf "foo" ]
+
 -}
 remove : a -> Node a -> Node a
 remove target tree =
@@ -365,6 +411,11 @@ remove target tree =
 
 
 {-| Replace a Node in a Tree.
+
+    node "root" [ node "foo" [ leaf "bar" ] ]
+        |> replaceNode "foo" (leaf "bar")
+        == node "root" [ leaf "bar" ]
+
 -}
 replaceNode : a -> Node a -> Node a -> Node a
 replaceNode target replacement root =
@@ -379,6 +430,11 @@ replaceNode target replacement root =
 
 
 {-| Replace a Node value in a Tree.
+
+    node "root" [ node "foo" [ leaf "bar" ] ]
+        |> replaceValue "foo" "baz"
+        == node "root" [ node "baz" [ leaf "bar" ] ]
+
 -}
 replaceValue : a -> a -> Node a -> Node a
 replaceValue target replacement root =
@@ -391,16 +447,26 @@ replaceValue target replacement root =
 
 
 {-| Retrieve all data from nodes containing a value satisfying a provided condition.
+
+    node 1 [ node 2 [ leaf 3, leaf 4, leaf 5 ] ]
+        |> seek (\x -> x > 3)
+        == [ 4, 5 ]
+
 -}
 seek : (a -> Bool) -> Node a -> List a
 seek test node =
     node
-        |> flatMap identity
+        |> flatten
         |> List.filter (value >> test)
         |> List.map value
 
 
-{-| Retrieve a Node siblings identified by its value in a Tree.
+{-| Retrieve siblings of a Node identified by its value in a Tree.
+
+    node "foo" [ leaf "a", node "b" [ leaf "x" ], leaf "c" ]
+        |> siblings "c"
+        == [ "a", "b" ]
+
 -}
 siblings : a -> Node a -> List a
 siblings target tree =
@@ -415,6 +481,15 @@ siblings target tree =
 
 
 {-| Turn a tree of node into a list of tuples.
+
+    node "root" [ node "foo" [ leaf "bar" ], leaf "baz" ]
+        |> toList
+        == [ ( "root", Nothing )
+           , ( "foo", Just "root")
+           , ( "bar", Just "foo")
+           , ( "baz", Just "root")
+           ]
+
 -}
 toList : Node a -> List ( a, Maybe a )
 toList node =
