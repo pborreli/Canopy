@@ -415,8 +415,8 @@ member value node =
 {-| Create a Node. Basically just an alias for the `Node` constructor.
 -}
 node : a -> List (Node a) -> Node a
-node value children =
-    Node value children
+node =
+    Node
 
 
 {-| Retrieve the parent of a given node in a Tree, identified by its value.
