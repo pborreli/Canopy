@@ -7,12 +7,13 @@ module Canopy
         , decode
         , encode
         , filter
-        , get
+        , filterStrictly
         , flatMap
         , flatten
         , foldl
         , foldr
         , fromList
+        , get
         , leaf
         , leaves
         , level
@@ -60,7 +61,7 @@ TODO:
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, tuple
+@docs replaceNode, replaceValue, filter, filterStrictly, flatMap, flatten, foldl, foldr, map, mapChildren, tuple
 
 
 # Querying a Tree
@@ -159,26 +160,28 @@ encode valueEncoder (Node value children) =
         ]
 
 
-{-| Filter a Tree, keeping only nodes which attached value satisfies the
-provided test and their ancestors, up to the tree root.
+{-| Filter a Tree, keeping only nodes which attached leaves satisfy the
+provided test and their ancestors, up to the tree root, which is always kept.
 
-    node 1
-        [ node 2
-            [ leaf 3
-            , node 4
-                [ leaf 5
-                , leaf 6
-                , leaf 7
-                , leaf 8
+    node 2
+        [ node 4
+            [ leaf 6
+            , leaf 7
+            , node 8
+                [ leaf 10
+                , leaf 11
+                , leaf 12
+                , leaf 13
                 ]
             ]
         ]
         |> filter (\x -> x % 2 == 0)
-    --> node 1
-    -->    [ node 2
-    -->        [ node 4
-    -->            [ leaf 6
-    -->            , leaf 8
+    --> node 2
+    -->    [ node 4
+    -->        [ leaf 6
+    -->        , node 8
+    -->            [ leaf 10
+    -->            , leaf 12
     -->            ]
     -->        ]
     -->    ]
@@ -196,6 +199,30 @@ filter test tree =
         toDelete
             |> List.filter (\value -> List.member value toPreserve |> not)
             |> List.foldl remove tree
+
+
+{-| Filter a Tree strictly, removing all nodes failing the provided value test,
+including root, hence the resulting Maybe.
+
+    node 0 [ leaf 1 ]
+        |> filterStrictly (\x -> x > 0)
+    --> Nothing
+
+    node 2 [ leaf 3, leaf 4 ]
+        |> filterStrictly (\x -> x % 2 == 0)
+    --> Just (node 2 [ leaf 4 ])
+
+-}
+filterStrictly : (a -> Bool) -> Node a -> Maybe (Node a)
+filterStrictly test tree =
+    if test (value tree) then
+        let
+            newChildren =
+                tree |> children |> List.filter (value >> test) |> List.map (filter test)
+        in
+            tree |> updateChildren newChildren |> Just
+    else
+        Nothing
 
 
 {-| Map each node using a mapping function then flatten the result into a new list.

@@ -143,7 +143,25 @@ testFilter =
             |> filter ((==) "node 2.2")
             |> flatMap value
             |> Expect.equal [ "root", "node 2", "node 2.2" ]
-            |> asTest "should preserve parents"
+            |> asTest "should preserve ancestors"
+        ]
+
+
+testFilterStrictly : Test
+testFilterStrictly =
+    describe "filterStrictly"
+        [ node 0 [ leaf 1 ]
+            |> filterStrictly (\x -> x > 0)
+            |> Expect.equal Nothing
+            |> asTest "should stricly filter out a non-matching root node"
+        , node 2 [ leaf 3, leaf 4 ]
+            |> filterStrictly (\x -> x % 2 == 0)
+            |> Expect.equal (Just (node 2 [ leaf 4 ]))
+            |> asTest "should filter a tree strictly"
+        , node 2 [ leaf 3, leaf 4, node 5 [ leaf 6 ] ]
+            |> filterStrictly (\x -> x % 2 == 0)
+            |> Expect.equal (Just (node 2 [ leaf 4 ]))
+            |> asTest "should deeply filter a tree strictly"
         ]
 
 
