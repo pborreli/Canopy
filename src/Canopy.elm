@@ -14,6 +14,7 @@ module Canopy
         , foldr
         , fromList
         , get
+        , getAll
         , leaf
         , leaves
         , length
@@ -54,14 +55,19 @@ module Canopy
 @docs node, leaf, append, prepend, remove, seed
 
 
+# Querying a Tree
+
+@docs value, values, children, length, get, getAll, leaves, level, maximum, minimum, parent, path, seek, siblings
+
+
 # Manipulating a Tree
 
 @docs filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, replaceNode, replaceValue, sortBy, sortWith, updateChildren, updateValue, tuple
 
 
-# Querying a Tree
+# Checking a Tree
 
-@docs value, values, children, length, get, all, any, leaves, level, maximum, minimum, member, parent, path, seek, siblings
+@docs all, any, member
 
 
 # Importing and exporting
@@ -254,10 +260,7 @@ flatten node =
 -}
 foldl : (a -> b -> b) -> b -> Node a -> b
 foldl fn acc node =
-    node
-        |> toList
-        |> List.map Tuple.first
-        |> List.foldl fn acc
+    node |> values |> List.foldl fn acc
 
 
 {-| Reduce all tree values from top to bottom, right to left.
@@ -273,10 +276,7 @@ foldl fn acc node =
 -}
 foldr : (a -> b -> b) -> b -> Node a -> b
 foldr fn acc node =
-    node
-        |> toList
-        |> List.map Tuple.first
-        |> List.foldr fn acc
+    node |> values |> List.foldr fn acc
 
 
 {-| Build a tree from a list of hierarchy descriptors, which are tuples of value
@@ -297,12 +297,9 @@ fromList nodes =
             nodes
                 |> List.foldl
                     (\( value, maybeParent ) acc ->
-                        case maybeParent of
-                            Just parent ->
-                                acc |> append parent value
-
-                            Nothing ->
-                                acc
+                        maybeParent
+                            |> Maybe.map (\parent -> append parent value acc)
+                            |> Maybe.withDefault acc
                     )
                     (leaf root)
                 |> Just
@@ -311,7 +308,8 @@ fromList nodes =
             Nothing
 
 
-{-| Get a Node from a tree of Nodes, identified by its value.
+{-| Get a Node holding a value from a tree, picking the first node found starting
+from the left.
 
     node "root" [ leaf "bar" ]
         |> get "bar"
@@ -320,15 +318,19 @@ fromList nodes =
 -}
 get : a -> Node a -> Maybe (Node a)
 get target node =
-    if target == value node then
-        Just node
-    else
-        node
-            |> children
-            |> List.map (get target)
-            |> List.filter ((/=) Nothing)
-            |> List.head
-            |> Maybe.withDefault Nothing
+    node |> getAll target |> List.head
+
+
+{-| Get all nodes containing the provided value.
+
+    node 1 [ leaf 1 ]
+        |> getAll 1
+    --> [ node 1 [ leaf 1 ], leaf 1 ]
+
+-}
+getAll : a -> Node a -> List (Node a)
+getAll target node =
+    node |> flatten |> List.filter (value >> (==) target)
 
 
 {-| Create a node having no children (singleton).
@@ -355,10 +357,7 @@ leaf value =
 -}
 leaves : Node a -> List a
 leaves tree =
-    tree
-        |> flatten
-        |> List.filter (\node -> children node == [])
-        |> List.map value
+    tree |> flatten |> List.filter (children >> (==) []) |> List.map value
 
 
 {-| Count nodes in a tree.
@@ -462,11 +461,8 @@ minimum node =
 
 -}
 member : a -> Node a -> Bool
-member value node =
-    node
-        |> seek ((==) value)
-        |> List.length
-        |> (<) 0
+member target node =
+    node |> get target |> Maybe.map (always True) |> Maybe.withDefault False
 
 
 {-| Create a Node. Basically just an alias for the `Node` constructor.
@@ -572,7 +568,8 @@ remove target tree =
 
 
 {-| Filter a Tree, keeping only nodes which attached leaves satisfy the
-provided test and their ancestors, up to the tree root, which is always kept.
+provided test and preserving their ancestors, up to the tree root, which is
+always kept.
 
     node 2
         [ node 4
@@ -688,9 +685,7 @@ siblings : a -> Node a -> List a
 siblings target tree =
     case parent target tree of
         Just (Node _ children) ->
-            children
-                |> List.filter (\node -> value node /= target)
-                |> List.map value
+            children |> List.filter (value >> (/=) target) |> List.map value
 
         Nothing ->
             []
@@ -779,6 +774,4 @@ value (Node value _) =
 -}
 values : Node a -> List a
 values node =
-    node
-        |> toList
-        |> List.map Tuple.first
+    node |> toList |> List.map Tuple.first
