@@ -7,7 +7,6 @@ module Canopy
         , decode
         , encode
         , filter
-        , filterStrictly
         , flatMap
         , flatten
         , foldl
@@ -25,6 +24,7 @@ module Canopy
         , path
         , prepend
         , remove
+        , refine
         , replaceNode
         , replaceValue
         , seed
@@ -61,7 +61,7 @@ TODO:
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, filterStrictly, flatMap, flatten, foldl, foldr, map, mapChildren, tuple
+@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, tuple
 
 
 # Querying a Tree
@@ -160,65 +160,27 @@ encode valueEncoder (Node value children) =
         ]
 
 
-{-| Filter a Tree, keeping only nodes which attached leaves satisfy the
-provided test and their ancestors, up to the tree root, which is always kept.
-
-    node 2
-        [ node 4
-            [ leaf 6
-            , leaf 7
-            , node 8
-                [ leaf 10
-                , leaf 11
-                , leaf 12
-                , leaf 13
-                ]
-            ]
-        ]
-        |> filter (\x -> x % 2 == 0)
-    --> node 2
-    -->    [ node 4
-    -->        [ leaf 6
-    -->        , node 8
-    -->            [ leaf 10
-    -->            , leaf 12
-    -->            ]
-    -->        ]
-    -->    ]
-
--}
-filter : (a -> Bool) -> Node a -> Node a
-filter test tree =
-    let
-        toDelete =
-            tree |> seek (not << test)
-
-        toPreserve =
-            tree |> seek test |> List.map (\value -> path value tree) |> List.concat
-    in
-        toDelete
-            |> List.filter (\value -> List.member value toPreserve |> not)
-            |> List.foldl remove tree
-
-
 {-| Filter a Tree strictly, removing all nodes failing the provided value test,
 including root, hence the resulting Maybe.
 
     node 0 [ leaf 1 ]
-        |> filterStrictly (\x -> x > 0)
+        |> filter (\x -> x > 0)
     --> Nothing
 
     node 2 [ leaf 3, leaf 4 ]
-        |> filterStrictly (\x -> x % 2 == 0)
+        |> filter (\x -> x % 2 == 0)
     --> Just (node 2 [ leaf 4 ])
 
 -}
-filterStrictly : (a -> Bool) -> Node a -> Maybe (Node a)
-filterStrictly test tree =
+filter : (a -> Bool) -> Node a -> Maybe (Node a)
+filter test tree =
     if test (value tree) then
         let
             newChildren =
-                tree |> children |> List.filter (value >> test) |> List.map (filter test)
+                tree
+                    |> children
+                    |> List.filter (value >> test)
+                    |> List.filterMap (filter test)
         in
             tree |> updateChildren newChildren |> Just
     else
@@ -555,7 +517,48 @@ Or when attempting to delete the tree itself:
 -}
 remove : a -> Node a -> Node a
 remove target tree =
-    tree |> filterStrictly ((/=) target) |> Maybe.withDefault tree
+    tree |> filter ((/=) target) |> Maybe.withDefault tree
+
+
+{-| Filter a Tree, keeping only nodes which attached leaves satisfy the
+provided test and their ancestors, up to the tree root, which is always kept.
+
+    node 2
+        [ node 4
+            [ leaf 6
+            , leaf 7
+            , node 8
+                [ leaf 10
+                , leaf 11
+                , leaf 12
+                , leaf 13
+                ]
+            ]
+        ]
+        |> refine (\x -> x % 2 == 0)
+    --> node 2
+    -->    [ node 4
+    -->        [ leaf 6
+    -->        , node 8
+    -->            [ leaf 10
+    -->            , leaf 12
+    -->            ]
+    -->        ]
+    -->    ]
+
+-}
+refine : (a -> Bool) -> Node a -> Node a
+refine test tree =
+    let
+        toDelete =
+            tree |> seek (not << test)
+
+        toPreserve =
+            tree |> seek test |> List.map (\value -> path value tree) |> List.concat
+    in
+        toDelete
+            |> List.filter (\value -> List.member value toPreserve |> not)
+            |> List.foldl remove tree
 
 
 {-| Replace a Node in a Tree, if it exists.

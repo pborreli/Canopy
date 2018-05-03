@@ -126,42 +126,18 @@ testEncode =
 testFilter : Test
 testFilter =
     describe "filter"
-        [ testTree
-            |> filter (always True)
-            |> Expect.equal testTree
-            |> asTest "should noop filter a tree"
-        , testTree
-            |> filter (\s -> String.length s > 4)
-            |> Expect.equal testTree
-            |> asTest "should never filter out tree root"
-        , testTree
-            |> filter (String.contains "2")
-            |> flatMap value
-            |> Expect.equal [ "root", "node 2", "node 2.1", "node 2.2", "node 2.3" ]
-            |> asTest "should selectively filter tree nodes"
-        , testTree
-            |> filter ((==) "node 2.2")
-            |> flatMap value
-            |> Expect.equal [ "root", "node 2", "node 2.2" ]
-            |> asTest "should preserve ancestors"
-        ]
-
-
-testFilterStrictly : Test
-testFilterStrictly =
-    describe "filterStrictly"
         [ node 0 [ leaf 1 ]
-            |> filterStrictly (\x -> x > 0)
+            |> filter (\x -> x > 0)
             |> Expect.equal Nothing
-            |> asTest "should stricly filter out a non-matching root node"
+            |> asTest "should filter out a non-matching root node"
         , node 2 [ leaf 3, leaf 4 ]
-            |> filterStrictly (\x -> x % 2 == 0)
+            |> filter (\x -> x % 2 == 0)
             |> Expect.equal (Just (node 2 [ leaf 4 ]))
-            |> asTest "should filter a tree strictly"
+            |> asTest "should filter a simple tree"
         , node 2 [ leaf 3, leaf 4, node 5 [ leaf 6 ] ]
-            |> filterStrictly (\x -> x % 2 == 0)
+            |> filter (\x -> x % 2 == 0)
             |> Expect.equal (Just (node 2 [ leaf 4 ]))
-            |> asTest "should deeply filter a tree strictly"
+            |> asTest "should filter a deep tree"
         ]
 
 
@@ -444,6 +420,30 @@ testPrependChild =
             |> prepend "non-existent" "baz"
             |> Expect.equal (node "foo" [ leaf "bar" ])
             |> asTest "should not prepend a node to a non-existent parent"
+        ]
+
+
+testRefine : Test
+testRefine =
+    describe "refine"
+        [ testTree
+            |> refine (always True)
+            |> Expect.equal testTree
+            |> asTest "should noop refine a tree"
+        , testTree
+            |> refine (\s -> String.length s > 4)
+            |> Expect.equal testTree
+            |> asTest "should never refine out tree root"
+        , testTree
+            |> refine (String.contains "2")
+            |> flatMap value
+            |> Expect.equal [ "root", "node 2", "node 2.1", "node 2.2", "node 2.3" ]
+            |> asTest "should selectively refine tree nodes"
+        , testTree
+            |> refine ((==) "node 2.2")
+            |> flatMap value
+            |> Expect.equal [ "root", "node 2", "node 2.2" ]
+            |> asTest "should preserve ancestors"
         ]
 
 
