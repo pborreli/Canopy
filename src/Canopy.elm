@@ -602,10 +602,11 @@ refine test tree =
             tree |> seek (not << test)
 
         toPreserve =
-            tree |> seek test |> List.map (\value -> path value tree) |> List.concat
+            tree |> seek test |> List.map (\(Node value _) -> path value tree) |> List.concat
     in
         toDelete
-            |> List.filter (\value -> List.member value toPreserve |> not)
+            |> List.filter (\(Node value _) -> List.member value toPreserve |> not)
+            |> List.map value
             |> List.foldl remove tree
 
 
@@ -645,12 +646,12 @@ replaceValue target replacement root =
 
     node 1 [ node 2 [ leaf 3, leaf 4, leaf 5 ] ]
         |> seek (\x -> x > 3)
-    --> [ 4, 5 ]
+    --> [ leaf 4, leaf 5 ]
 
 -}
-seek : (a -> Bool) -> Node a -> List a
+seek : (a -> Bool) -> Node a -> List (Node a)
 seek test node =
-    node |> flatten |> List.filter (value >> test) |> List.map value
+    node |> flatten |> List.filter (value >> test)
 
 
 {-| Seed a tree.
@@ -675,14 +676,14 @@ seed seeder init =
 
     node "foo" [ leaf "a", node "b" [ leaf "x" ], leaf "c" ]
         |> siblings "c"
-    --> [ "a", "b" ]
+    --> [ leaf "a", node "b" [ leaf "x" ] ]
 
 -}
-siblings : a -> Node a -> List a
+siblings : a -> Node a -> List (Node a)
 siblings target tree =
     case parent target tree of
         Just (Node _ children) ->
-            children |> List.filter (value >> (/=) target) |> List.map value
+            children |> List.filter (value >> (/=) target)
 
         Nothing ->
             []

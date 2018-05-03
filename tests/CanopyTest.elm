@@ -555,10 +555,12 @@ testSeek =
     describe "seek"
         [ testTree
             |> seek (String.contains ".")
+            |> List.map value
             |> Expect.equal [ "node 2.1", "node 2.2", "node 2.3" ]
             |> asTest "should seek a tree"
         , testTree
             |> seek (String.startsWith "node")
+            |> List.map value
             |> Expect.equal [ "node 1", "node 2", "node 2.1", "node 2.2", "node 2.3", "node 3" ]
             |> asTest "should seek a tree 2"
         ]
@@ -569,7 +571,7 @@ testSiblings =
     describe "siblings"
         [ testTree
             |> siblings "node 2.2"
-            |> Expect.equal [ "node 2.1", "node 2.3" ]
+            |> Expect.equal [ leaf "node 2.1", leaf "node 2.3" ]
             |> asTest "should retrieve node siblings across the tree"
         ]
 
