@@ -17,6 +17,7 @@ module Canopy
         , leaves
         , level
         , map
+        , mapChildren
         , member
         , node
         , parent
@@ -39,6 +40,7 @@ module Canopy
 
 TODO:
 
+  - rename count to length
   - sort, sortBy
   - reverse
   - minimum/maximum : List comparable -> Maybe comparable
@@ -58,7 +60,7 @@ TODO:
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, tuple
+@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, tuple
 
 
 # Querying a Tree
@@ -94,7 +96,7 @@ append target child node =
     if target == value node then
         node |> updateChildren (children node ++ [ leaf child ])
     else
-        node |> updateChildren (node |> children |> List.map (append target child))
+        node |> mapChildren (append target child)
 
 
 {-| Extracts the children of a Node.
@@ -396,6 +398,18 @@ map mapper (Node value children) =
     Node (mapper value) (children |> List.map (map mapper))
 
 
+{-| Map a node's children.
+
+    node "root" [ leaf "foo", leaf "bar" ]
+        |> mapChildren (map String.toUpper)
+    --> node "root" [ leaf "FOO", leaf "BAR" ]
+
+-}
+mapChildren : (Node a -> Node a) -> Node a -> Node a
+mapChildren mapper (Node value children) =
+    Node value (List.map mapper children)
+
+
 {-| Check if a tree contains a value.
 
     node "foo" [ node "bar" [ leaf "baz" ] ]
@@ -490,7 +504,7 @@ prepend target child node =
     if target == value node then
         node |> updateChildren (leaf child :: children node)
     else
-        updateChildren (node |> children |> List.map (prepend target child)) node
+        node |> mapChildren (prepend target child)
 
 
 {-| Deletes a Node from a tree, referenced by its attached value.
@@ -520,7 +534,7 @@ remove target tree =
             tree
 
 
-{-| Replace a Node in a Tree.
+{-| Replace a Node in a Tree, if it exists.
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> replaceNode "foo" (leaf "bar")
@@ -532,11 +546,7 @@ replaceNode target replacement root =
     if value root == target then
         replacement
     else
-        let
-            newChildren =
-                root |> children |> List.map (replaceNode target replacement)
-        in
-            root |> updateChildren newChildren
+        root |> mapChildren (replaceNode target replacement)
 
 
 {-| Replace a Node value in a Tree.
@@ -556,7 +566,7 @@ replaceValue target replacement root =
             root
 
 
-{-| Retrieve all data from nodes containing a value satisfying a provided condition.
+{-| Retrieve all values from nodes containing those satisfying a provided condition.
 
     node 1 [ node 2 [ leaf 3, leaf 4, leaf 5 ] ]
         |> seek (\x -> x > 3)
