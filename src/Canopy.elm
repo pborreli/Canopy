@@ -3,7 +3,6 @@ module Canopy
         ( Node(..)
         , append
         , children
-        , count
         , decode
         , encode
         , filter
@@ -15,6 +14,7 @@ module Canopy
         , get
         , leaf
         , leaves
+        , length
         , level
         , map
         , mapChildren
@@ -41,15 +41,11 @@ module Canopy
 
 TODO:
 
-  - rename count to length
   - sort, sortBy
   - reverse
   - minimum/maximum : List comparable -> Maybe comparable
   - all/any
   - check that we have actual tests for main fns
-
-
-# Basics
 
 @docs Node
 
@@ -66,7 +62,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, children, count, get, leaves, level, member, parent, path, seek, siblings
+@docs value, children, length, get, leaves, level, member, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -110,18 +106,6 @@ append target child node =
 children : Node a -> List (Node a)
 children (Node _ children) =
     children
-
-
-{-| Count nodes in a tree.
-
-    node 1 [node 2 [ node 3 [ leaf 4 ] ] ]
-    |> count
-    --> 4
-
--}
-count : Node a -> Int
-count node =
-    foldl (\_ x -> x + 1) 0 node
 
 
 {-| Decode a Node. You must specify a value decoder.
@@ -344,6 +328,18 @@ leaves tree =
         |> flatten
         |> List.filter (\node -> children node == [])
         |> List.map value
+
+
+{-| Count nodes in a tree.
+
+    node 1 [node 2 [ node 3 [ leaf 4 ] ] ]
+    |> length
+    --> 4
+
+-}
+length : Node a -> Int
+length node =
+    foldl (\_ x -> x + 1) 0 node
 
 
 {-| Retrieve all nodes at a given level in the tree.
