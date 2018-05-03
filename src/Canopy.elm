@@ -51,12 +51,12 @@ module Canopy
 
 # Building a Tree
 
-@docs node, leaf, append, prepend, remove, seed, updateChildren, updateValue
+@docs node, leaf, append, prepend, remove, seed
 
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, sortBy, sortWith, tuple
+@docs filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, replaceNode, replaceValue, sortBy, sortWith, updateChildren, updateValue, tuple
 
 
 # Querying a Tree

@@ -61,6 +61,34 @@ json =
 }"""
 
 
+testAll : Test
+testAll =
+    describe "all"
+        [ node 1 [ leaf 2 ]
+            |> all (\x -> x > 0)
+            |> Expect.equal True
+            |> asTest "should ensure all values match a test"
+        , node 0 [ leaf 2 ]
+            |> all (\x -> x > 0)
+            |> Expect.equal False
+            |> asTest "should return False when a test doesn't pass"
+        ]
+
+
+testAny : Test
+testAny =
+    describe "any"
+        [ node 0 [ leaf 2 ]
+            |> any (\x -> x > 0)
+            |> Expect.equal True
+            |> asTest "should ensure any values match a test"
+        , node 0 [ leaf -2 ]
+            |> any (\x -> x > 0)
+            |> Expect.equal False
+            |> asTest "should return False when a test doesn't pass"
+        ]
+
+
 testAppendChild : Test
 testAppendChild =
     describe "append"
