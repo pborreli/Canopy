@@ -4,6 +4,7 @@
   "description": "An Elm tree library.",
   "private": true,
   "scripts": {
+    "install": "elm-package install -y",
     "test": "elm-doc-test && elm-test"
   },
   "author": "Allo-Media <contact@allo-media.net>",
