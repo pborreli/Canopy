@@ -650,10 +650,7 @@ replaceValue target replacement root =
 -}
 seek : (a -> Bool) -> Node a -> List a
 seek test node =
-    node
-        |> flatten
-        |> List.filter (value >> test)
-        |> List.map value
+    node |> flatten |> List.filter (value >> test) |> List.map value
 
 
 {-| Seed a tree.
@@ -774,4 +771,4 @@ value (Node value _) =
 -}
 values : Node a -> List a
 values node =
-    node |> toList |> List.map Tuple.first
+    node |> flatten |> List.map value
