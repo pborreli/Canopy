@@ -546,6 +546,42 @@ testSiblings =
         ]
 
 
+testSortBy : Test
+testSortBy =
+    describe "sortBy"
+        [ testTree
+            |> map String.reverse
+            |> sortBy identity
+            |> Expect.equal
+                (node "toor"
+                    [ leaf "1 edon"
+                    , node "2 edon" [ leaf "1.2 edon", leaf "2.2 edon", leaf "3.2 edon" ]
+                    , leaf "3 edon"
+                    ]
+                )
+            |> asTest "should sort a tree"
+        ]
+
+
+testSortWith : Test
+testSortWith =
+    describe "sortWith"
+        [ node "a" [ leaf "aa", node "aaa" [ leaf "aaaa", leaf "aaaaa" ] ]
+            |> sortWith
+                (\a b ->
+                    if String.length a == String.length b then
+                        EQ
+                    else if String.length a < String.length b then
+                        GT
+                    else
+                        LT
+                )
+            |> Expect.equal
+                (node "a" [ node "aaa" [ leaf "aaaaa", leaf "aaaa" ], leaf "aa" ])
+            |> asTest "should sort a tree"
+        ]
+
+
 testToList : Test
 testToList =
     describe "toList"

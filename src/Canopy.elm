@@ -32,6 +32,8 @@ module Canopy
         , seed
         , seek
         , siblings
+        , sortBy
+        , sortWith
         , toList
         , tuple
         , updateChildren
@@ -44,7 +46,6 @@ module Canopy
 
 TODO:
 
-  - sort, sortBy
   - reverse
   - all/any
   - check that we have actual tests for main fns
@@ -52,14 +53,14 @@ TODO:
 @docs Node
 
 
-# Building and manipulating a Tree
+# Building a Tree
 
 @docs node, leaf, append, prepend, remove, seed, updateChildren, updateValue
 
 
 # Manipulating a Tree
 
-@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, tuple
+@docs replaceNode, replaceValue, filter, flatMap, flatten, foldl, foldr, map, mapChildren, refine, sortBy, sortWith, tuple
 
 
 # Querying a Tree
@@ -665,6 +666,36 @@ siblings target tree =
 
         Nothing ->
             []
+
+
+{-| Recursively sort node children from a tree using a sorter.
+
+    node 0 [ leaf 3, leaf 1, leaf 2 ]
+        |> sortBy identity
+    --> node 0 [ leaf 1, leaf 2, leaf 3 ]
+
+-}
+sortBy : (a -> comparable) -> Node a -> Node a
+sortBy sorter (Node val children) =
+    children
+        |> List.sortBy (value >> sorter)
+        |> List.map (sortBy sorter)
+        |> Node val
+
+
+{-| Recursively sort node children from a tree using a comparator.
+
+    node 0 [ leaf 3, leaf 1, leaf 2 ]
+        |> sortWith (\a b -> if a == b then EQ else if a < b then GT else LT)
+    --> node 0 [ leaf 3, leaf 2, leaf 1 ]
+
+-}
+sortWith : (a -> a -> Order) -> Node a -> Node a
+sortWith comparator (Node val children) =
+    children
+        |> List.sortWith (\a b -> comparator (value a) (value b))
+        |> List.map (sortWith comparator)
+        |> Node val
 
 
 {-| Turn a tree of node into a list of tuples.
