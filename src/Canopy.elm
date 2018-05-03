@@ -1,6 +1,8 @@
 module Canopy
     exposing
         ( Node(..)
+        , all
+        , any
         , append
         , children
         , decode
@@ -44,12 +46,6 @@ module Canopy
 
 {-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
 
-TODO:
-
-  - reverse
-  - all/any
-  - check that we have actual tests for main fns
-
 @docs Node
 
 
@@ -65,12 +61,12 @@ TODO:
 
 # Querying a Tree
 
-@docs value, values, children, length, get, leaves, level, maximum, minimum, member, parent, path, seek, siblings
+@docs value, values, children, length, get, all, any, leaves, level, maximum, minimum, member, parent, path, seek, siblings
 
 
 # Importing and exporting
 
-@docs decode, encode, fromList, toList
+@docs fromList, toList, decode, encode
 
 -}
 
@@ -82,6 +78,38 @@ import Json.Encode as Encode
 -}
 type Node a
     = Node a (List (Node a))
+
+
+{-| Check that all values satisfy a test in a tree.
+
+    node 1 [ leaf 2 ]
+        |> all (\x -> x > 0)
+    --> True
+
+    node 1 [leaf -2]
+        |> all (\x -> x > 0)
+    --> False
+
+-}
+all : (a -> Bool) -> Node a -> Bool
+all test node =
+    node |> values |> List.all test
+
+
+{-| Check that any value satisfy a test in a tree.
+
+    node 1 [ leaf -2 ]
+        |> any (\x -> x > 0)
+    --> True
+
+    node -1 [ leaf -2 ]
+        |> any (\x -> x > 0)
+    --> False
+
+-}
+any : (a -> Bool) -> Node a -> Bool
+any test node =
+    node |> values |> List.any test
 
 
 {-| Append a new value to a Node identified by its value in a Tree.
