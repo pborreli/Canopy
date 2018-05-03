@@ -340,6 +340,34 @@ testMap =
         ]
 
 
+testMaximum : Test
+testMaximum =
+    describe "maximum"
+        [ node 4 [ node 3 [ leaf 1 ], node 2 [ leaf 5 ] ]
+            |> maximum
+            |> Expect.equal 5
+            |> asTest "should compute the maximum comparable value of a tree"
+        , node -4 [ node -3 [ leaf -1 ], node -2 [ leaf -5 ] ]
+            |> maximum
+            |> Expect.equal -1
+            |> asTest "should handle negative values"
+        ]
+
+
+testMinimum : Test
+testMinimum =
+    describe "minimum"
+        [ node 4 [ node 3 [ leaf 1 ], node 2 [ leaf 5 ] ]
+            |> minimum
+            |> Expect.equal 1
+            |> asTest "should compute the minimum comparable value of a tree"
+        , node -4 [ node -3 [ leaf -1 ], node -2 [ leaf -5 ] ]
+            |> minimum
+            |> Expect.equal -5
+            |> asTest "should handle negative values"
+        ]
+
+
 testNode : Test
 testNode =
     describe "node"

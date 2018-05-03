@@ -18,6 +18,8 @@ module Canopy
         , level
         , map
         , mapChildren
+        , maximum
+        , minimum
         , member
         , node
         , parent
@@ -35,6 +37,7 @@ module Canopy
         , updateChildren
         , updateValue
         , value
+        , values
         )
 
 {-| A generic [Rose Tree](https://en.wikipedia.org/wiki/Rose_tree).
@@ -43,7 +46,6 @@ TODO:
 
   - sort, sortBy
   - reverse
-  - minimum/maximum : List comparable -> Maybe comparable
   - all/any
   - check that we have actual tests for main fns
 
@@ -62,7 +64,7 @@ TODO:
 
 # Querying a Tree
 
-@docs value, children, length, get, leaves, level, member, parent, path, seek, siblings
+@docs value, values, children, length, get, leaves, level, maximum, minimum, member, parent, path, seek, siblings
 
 
 # Importing and exporting
@@ -395,6 +397,30 @@ mapChildren mapper (Node value children) =
     Node value (List.map mapper children)
 
 
+{-| Compute the maximum value appearing in a tree.
+
+    node 1 [ leaf 100, node 2 [ leaf 3 ] ]
+        |> maximum
+    --> 100
+
+-}
+maximum : Node comparable -> comparable
+maximum node =
+    node |> values |> List.maximum |> Maybe.withDefault (value node)
+
+
+{-| Compute the minimum value appearing in a tree.
+
+    node 100 [ leaf 99, node 1 [ leaf 98 ] ]
+        |> minimum
+    --> 1
+
+-}
+minimum : Node comparable -> comparable
+minimum node =
+    node |> values |> List.minimum |> Maybe.withDefault (value node)
+
+
 {-| Check if a tree contains a value.
 
     node "foo" [ node "bar" [ leaf "baz" ] ]
@@ -683,3 +709,17 @@ updateValue value (Node _ children) =
 value : Node a -> a
 value (Node value _) =
     value
+
+
+{-| List all the values in a tree.
+
+    node 1 [ node 2 [ leaf 3 ] ]
+        |> values
+    --> [ 1, 2, 3 ]
+
+-}
+values : Node a -> List a
+values node =
+    node
+        |> toList
+        |> List.map Tuple.first
