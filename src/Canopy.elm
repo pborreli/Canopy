@@ -534,31 +534,28 @@ prepend target child node =
         node |> mapChildren (prepend target child)
 
 
-{-| Deletes a Node from a tree, referenced by its attached value.
-
-Noop when the target doesn't exist in the tree or when attempting to delete the
-tree itself.
+{-| Deletes all occurences of a value from a tree.
 
     node "root" [ node "foo" [ leaf "bar" ] ]
         |> remove "bar"
     --> node "root" [ leaf "foo" ]
 
+Noop when the value doesn't exist in the tree:
+
+    node "root" [ leaf "foo" ]
+        |> remove "non-existent"
+    --> node "root" [ leaf "foo" ]
+
+Or when attempting to delete the tree itself:
+
+    leaf "root"
+        |> remove "root"
+    --> leaf "root"
+
 -}
 remove : a -> Node a -> Node a
 remove target tree =
-    case tree |> parent target of
-        Just parentNode ->
-            let
-                newChildren =
-                    parentNode |> children |> List.filter (\node -> value node /= target)
-
-                newParent =
-                    parentNode |> updateChildren newChildren
-            in
-                tree |> replaceNode (value parentNode) newParent
-
-        Nothing ->
-            tree
+    tree |> filterStrictly ((/=) target) |> Maybe.withDefault tree
 
 
 {-| Replace a Node in a Tree, if it exists.
